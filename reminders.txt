@@ -1,0 +1,3 @@
+- Reminder System Initialized. No active reminders yet.
+- <text>
+- Don't forget to subscribe to our channel!
