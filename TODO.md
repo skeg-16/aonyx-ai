@@ -1,11 +1,13 @@
-# Aonyx (JARVIS) Project Master Plan & State
+# Aonyx Project Master Plan & State
 
 ## Current State (As of End of Session)
 - **Phase 1 (Core Foundation)**: COMPLETED.
-- **Phase 2 (JARVIS HUD)**: COMPLETED.
+- **Phase 2 (Aonyx HUD)**: COMPLETED.
 - **Phase 3 (3D AI Core)**: COMPLETED.
 - **Phase 4 (Voice Interface)**: COMPLETED.
 - **Phase 5 (AI Orchestration)**: COMPLETED.
+- **Phase 6 (Persistent Memory)**: COMPLETED.
+- **Phase 7 (Desktop Intelligence)**: COMPLETED.
   - Built a robust orchestration engine (`app/orchestrator/`) capable of multi-step tool execution.
   - Enforced a strict JSON communication schema for the LLM.
   - Resolved `input overflow` blocking issues on Windows.
@@ -15,7 +17,7 @@
 
 ## Roadmap (Next Steps for Tomorrow)
 
-### 6. PHASE 6 — PERSISTENT MEMORY
+### 6. PHASE 6 — PERSISTENT MEMORY (COMPLETED)
 Implement a structured memory system.
 - Separate memory into: SHORT-TERM CONTEXT, LONG-TERM MEMORY, USER PREFERENCES, TASK MEMORY.
 - Do not simply dump the entire conversation into every Ollama request. Create memory retrieval.
@@ -26,7 +28,7 @@ Implement a structured memory system.
 - Add a small memory/status indicator to the HUD.
 - Test persistence by restarting the application.
 
-### 7. PHASE 7 — DESKTOP INTELLIGENCE
+### 7. PHASE 7 — DESKTOP INTELLIGENCE (COMPLETED)
 Give the assistant controlled awareness of the computer.
 - Implement safe tools for: active application, system information, CPU usage, RAM usage, disk usage, battery, network status, time/date, currently available files, opening approved applications, opening approved URLs.
 - Expose selected information through the HUD.
@@ -52,7 +54,7 @@ Develop the assistant's interaction style.
 - The personality must be implemented separately from the core orchestration logic.
 - Create configurable personality settings. Do not hardcode the entire personality into application logic.
 
-### 10. PHASE 10 — FINAL JARVIS EXPERIENCE (The "WOW" Layer)
+### 10. PHASE 10 — FINAL AONYX EXPERIENCE (The "WOW" Layer)
 Polish the entire application into a cohesive futuristic AI operating system.
 - Do not add random effects. Everything must communicate purpose.
 - Add where appropriate: 3D AI core improvements, particle reactions, audio-reactive visualization, holographic panels, subtle scan lines, system telemetry, contextual information, smooth transitions, intelligent notifications, tool execution visualization, voice waveform, AI status visualization, dynamic environment indicators, compact HUD mode, expanded command center.
@@ -70,13 +72,14 @@ Before declaring the project complete:
 - Perform a full end-to-end test: TEXT, VOICE, OLLAMA, MEMORY, TOOLS, DESKTOP INFORMATION, WEB SEARCH, 3D VISUALIZATION, HIDE/SHOW, HOTKEY, ERROR RECOVERY, APPLICATION RESTART.
 - Document every PASS / FAIL / NOT TESTED result.
 - Do not claim completion for anything that was not actually tested on the real desktop application.
+
 # Update Report (2026-10-04)
 - Fixed `ALLOWED_APPS` entries: Notepad now uses absolute path, Calculator uses `calc.exe`.
 - Switched app launch method in `tools.py` to `subprocess.Popen(['cmd', '/c', 'start', '', target])` for reliable foreground window opening.
 - Disabled always‑on‑top flag in `main.py` so Alt+Tab works normally.
 - Added diagnostic scripts (`test_os_system.py`, `test_startfile.py`) for quick verification.
 - After restarting the PC and `python main.py`, all allowed apps (Notepad, Calculator, Chrome, Discord, Spotify, FxSound, Edge, VS Code, Paint, etc.) should open correctly.
-- Next step: restart the system, run JARVIS, and confirm each app appears.
+- Next step: restart the system, run Aonyx, and confirm each app appears.
 
 # Update Report (2026-10-05)
 - Fixed test harness (`test_suite.py` guard) and calculator AST handling.
@@ -84,5 +87,22 @@ Before declaring the project complete:
 - All automated tests now pass (`pytest -vv`): 1 passed, 5 warnings.
 - Desktop app (`main.py`) runs; UI loads with hotkeys and rounded corners.
 - Frontend `index.html` served via local HTTP server; screenshots captured for desktop and mobile.
-- Ready to continue with Phase 6 tomorrow.
+- **Implemented Phase 6: Persistent Memory**:
+  - Rewrote `memory.py` with a robust `MemoryManager` storing `SHORT_TERM`, `LONG_TERM`, `USER_PREF`, and `TASK` categories in SQLite.
+  - Replaced ad-hoc memory tools with `STORE_MEMORY`, `RETRIEVE_MEMORY`, `UPDATE_MEMORY`, and `DELETE_MEMORY` in `tools.py`.
+  - Emitted `aonyx-memory` event from backend on initialization and orchestrator run.
+  - Added memory counter in HUD top-right status panel on frontend (`store.ts`, `App.tsx`).
+  - Adjusted `test_suite.py` to work with system python reliably.
+- Ready to proceed to Phase 7.
+
+# Update Report (Phase 7 - Desktop Intelligence)
+- Implemented `get_active_window` (using Win32 `GetForegroundWindow` and `GetWindowTextW`).
+- Implemented `get_desktop_info` (using `psutil` and `GetSystemMetrics`).
+- Implemented `check_application` (safely checking process lists via `psutil` against `ALLOWED_APPS`).
+- Implemented `focus_application` (using `EnumWindows` and `SetForegroundWindow` on verified PIDs).
+- Added `set_aonyx_visibility` natively into `DesktopAPI` which triggers the thread-safe `hotkey_mgr.toggle_state`.
+- Passed all regression tests. 5/5 pytest modules passed successfully.
+- Maintained security boundaries (no arbitrary CMD/Powershell execution allowed).
+- Deferred screenshot capabilities as per Phase 7 guidelines to preserve text-only orchestration stability.
+- Ready to proceed to Phase 8.
 

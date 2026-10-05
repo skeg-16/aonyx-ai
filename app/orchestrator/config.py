@@ -9,7 +9,7 @@ MAX_TOOL_STEPS = 5
 TOOL_TIMEOUT = 15  # Seconds per tool
 
 ALLOWED_APPS = {
-    "notepad": r"C:\\Windows\\System32\\notepad.exe",
+    "notepad": os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "notepad.exe"),
     "calculator": "calc.exe",
     "explorer": "explorer.exe",
     "cmd": "cmd.exe",
@@ -17,7 +17,7 @@ ALLOWED_APPS = {
     "google chrome": "chrome.exe",
     "spotify": os.path.join(os.environ.get("APPDATA", ""), "Spotify", "Spotify.exe"),
     "edge": "msedge.exe",
-    "antigravity": "agy.exe",
+    "antigravity": os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "Antigravity IDE", "Antigravity IDE.exe"),
     "fxsound": r"C:\Program Files\FxSound LLC\FxSound\FxSound.exe",
     "adobe acrobat": "acrobat.exe",
     "task manager": "taskmgr.exe",

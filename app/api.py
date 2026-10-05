@@ -8,6 +8,7 @@ from .llm import OllamaClient
 from .voice import VoiceEngine
 from .orchestrator.provider import OllamaProvider
 from .orchestrator.engine import Orchestrator
+from .orchestrator.registry import registry, ToolPermission
 
 logger = logging.getLogger(__name__)
 
@@ -15,30 +16,50 @@ class DesktopAPI:
     def __init__(self):
         self._window = None
         self.is_loaded = False
-        self.llm = OllamaClient(host="127.0.0.1", port=11434, model="llama3:latest")
-        self.pending_command = None
+        self._llm = OllamaClient(host="127.0.0.1", port=11434, model="llama3:latest")
+        self._pending_command = None
         if sys.platform == 'win32':
             asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-        self.loop = asyncio.new_event_loop()
+        self._loop = asyncio.new_event_loop()
         
-        self.provider = OllamaProvider()
+        self._provider = OllamaProvider()
         ui_callbacks = {
             "set_state": self._set_state,
             "show_tool_activity": self._show_tool_activity,
             "request_confirmation": self._request_confirmation,
             "stream_text": self._stream_text
         }
-        self.orchestrator = Orchestrator(self.provider, ui_callbacks)
+        self._orchestrator = Orchestrator(self._provider, ui_callbacks)
         
-        self.voice_engine = VoiceEngine(self._on_voice_event)
+        self._voice_engine = VoiceEngine(self._on_voice_event)
         self.last_rms_time = 0
         
-        self.thread = threading.Thread(target=self._run_loop, daemon=True)
-        self.thread.start()
+        self._thread = threading.Thread(target=self._run_loop, daemon=True)
+        self._thread.start()
+        
+        registry.register(
+            "set_aonyx_visibility",
+            "Hides or shows the Aonyx interface window.",
+            {"type": "object", "properties": {"visible": {"type": "boolean"}}, "required": ["visible"]},
+            ToolPermission.SAFE,
+            self._set_visibility_tool
+        )
+
+    def _set_visibility_tool(self, args):
+        visible = args.get("visible", True)
+        if hasattr(self, '_hotkey_mgr') and self._hotkey_mgr:
+            # Check current state
+            currently_hidden = self._hotkey_mgr.is_hidden
+            if visible and currently_hidden:
+                # Need to use threadsafe call if we are manipulating UI
+                self._loop.call_soon_threadsafe(self._hotkey_mgr.toggle_state)
+            elif not visible and not currently_hidden:
+                self._loop.call_soon_threadsafe(self._hotkey_mgr.toggle_state)
+        return {"status": "ok", "data": f"Visibility set to {visible}.", "summary": f"Visibility set"}
         
     def _run_loop(self):
-        asyncio.set_event_loop(self.loop)
-        self.loop.run_forever()
+        asyncio.set_event_loop(self._loop)
+        self._loop.run_forever()
 
     def set_window(self, window):
         self._window = window
@@ -46,10 +67,11 @@ class DesktopAPI:
     def on_loaded(self):
         self.is_loaded = True
         logger.info("Window loaded. Running init check.")
-        asyncio.run_coroutine_threadsafe(self._init_check(), self.loop)
+        asyncio.run_coroutine_threadsafe(self._init_check(), self._loop)
 
     async def _init_check(self):
-        is_healthy = await self.provider.health_check()
+        self._update_memory_count()
+        is_healthy = await self._provider.health_check()
         if not is_healthy:
             self._set_state("ERROR", "Ollama is unavailable at 127.0.0.1:11434")
             return
@@ -139,7 +161,7 @@ class DesktopAPI:
                 clean_text = re.sub(r'\*|_|`', '', clean_text)
                 if clean_text:
                     logger.info(f"Queued for TTS (stream): {clean_text}")
-                    self.voice_engine.speak(clean_text)
+                    self._voice_engine.speak(clean_text)
 
     def _on_voice_event(self, event_type, data):
         if event_type == "STATE":
@@ -156,7 +178,7 @@ class DesktopAPI:
                         pass
         elif event_type == "TRANSCRIPT":
             # Safely dispatch back to the asyncio loop
-            self.loop.call_soon_threadsafe(self.send_message, data)
+            self._loop.call_soon_threadsafe(self.send_message, data)
         elif event_type == "VOICE_READY":
             pass
         elif event_type == "VOICE_ERROR":
@@ -164,11 +186,11 @@ class DesktopAPI:
 
     def toggle_listening(self):
         """Called from PTT hotkey or UI button"""
-        if self.voice_engine.is_listening:
-            self.voice_engine.stop_listening()
-            self.voice_engine.process_audio()
+        if self._voice_engine.is_listening:
+            self._voice_engine.stop_listening()
+            self._voice_engine.process_audio()
         else:
-            if self.voice_engine.start_listening():
+            if self._voice_engine.start_listening():
                 self._set_state("LISTENING")
                 self._set_message("Listening...")
 
@@ -176,23 +198,23 @@ class DesktopAPI:
     def send_message(self, text: str):
         """Called from the frontend"""
         logger.info(f"Received message from UI: {text}")
-        self.voice_engine.interrupt_tts()
+        self._voice_engine.interrupt_tts()
         
         # Call orchestrator cancel in a thread-safe way
-        self.loop.call_soon_threadsafe(self.orchestrator.cancel)
+        self._loop.call_soon_threadsafe(self._orchestrator.cancel)
         
         self.sentence_buffer = ""
         self.last_clean_len = 0
         self._set_state("THINKING")
         self._set_message(f"User: {text}\n\nThinking...")
         
-        asyncio.run_coroutine_threadsafe(self._process_message(text), self.loop)
+        asyncio.run_coroutine_threadsafe(self._process_message(text), self._loop)
 
     def retry_last(self, text: str):
         logger.info(f"Retrying message from UI: {text}")
         self._set_state("THINKING")
         self._set_message(f"User: {text}\n\nRetrying request...")
-        asyncio.run_coroutine_threadsafe(self._process_message(text, is_retry=True), self.loop)
+        asyncio.run_coroutine_threadsafe(self._process_message(text, is_retry=True), self._loop)
 
     async def _process_message(self, text: str, is_retry=False):
         lower_text = text.strip().lower()
@@ -204,15 +226,15 @@ class DesktopAPI:
 
         system_commands = ["shutdown", "restart", "sleep"]
         if lower_text in system_commands:
-            self.pending_command = lower_text
+            self._pending_command = lower_text
             self._set_state("IDLE")
             self._set_message(f"{lower_text.capitalize()} the PC? Confirm / Cancel")
             return
             
-        if lower_text == "confirm" and self.pending_command:
-            cmd = self.pending_command
+        if lower_text == "confirm" and self._pending_command:
+            cmd = self._pending_command
             self._set_message(f"Executing {cmd}...")
-            self.pending_command = None
+            self._pending_command = None
             logger.info(f"MOCK {cmd.upper()} EXECUTED LCOALLY")
             self._set_state("TOOL_EXECUTION")
             await asyncio.sleep(2)
@@ -220,26 +242,27 @@ class DesktopAPI:
             self._set_message(f"Mock {cmd} finished.")
             return
             
-        if lower_text == "cancel" and self.pending_command:
+        if lower_text == "cancel" and self._pending_command:
             self._set_message("System command cancelled.")
-            self.pending_command = None
+            self._pending_command = None
             self._set_state("IDLE")
             return
 
-        self.pending_command = None
+        self._pending_command = None
         
         # Add orchestrator logic
         try:
-            await self.orchestrator.run(text)
+            await self._orchestrator.run(text)
+            self._update_memory_count()
             
-            if not self.orchestrator.is_cancelled:
+            if not self._orchestrator.is_cancelled:
                 # Flush any remaining text in the sentence buffer
                 if hasattr(self, 'sentence_buffer') and self.sentence_buffer.strip():
                     import re
                     clean_text = re.sub(r'\*|_|`', '', self.sentence_buffer.strip())
                     if clean_text:
                         logger.info(f"Queued for TTS (flush): {clean_text}")
-                        self.voice_engine.speak(clean_text)
+                        self._voice_engine.speak(clean_text)
                     self.sentence_buffer = ""
                 
         except Exception as e:
@@ -247,5 +270,14 @@ class DesktopAPI:
             self._set_state("ERROR", str(e))
             
     def handle_confirm(self, approved: bool):
-        self.loop.call_soon_threadsafe(self.orchestrator.provide_confirmation, approved)
+        self._loop.call_soon_threadsafe(self._orchestrator.provide_confirmation, approved)
+
+    def _update_memory_count(self):
+        if self._window and self.is_loaded:
+            try:
+                from .orchestrator.memory import get_all_memories
+                count = len(get_all_memories())
+                self._window.evaluate_js(f'window.dispatchEvent(new CustomEvent("aonyx-memory", {{detail: {{count: {count}}}}}));')
+            except Exception as e:
+                logger.error(f"Failed to set memory count: {e}")
 

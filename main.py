@@ -136,7 +136,25 @@ def on_window_ready(window, api, hotkey_mgr):
     api.on_loaded()
     hotkey_mgr.start()
 
+_ctrl_handler_ptr = None # Keep global reference to prevent GC
+_global_window = None
+
+def setup_ctrl_c_handler():
+    global _ctrl_handler_ptr
+    def _ctrl_handler(ctrl_type):
+        if ctrl_type in (0, 2): # CTRL_C_EVENT or CTRL_CLOSE_EVENT
+            logger.info("Ctrl+C detected, shutting down Aonyx gracefully...")
+            if _global_window:
+                _global_window.destroy()
+            return True
+        return False
+    
+    CMPFUNC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_uint)
+    _ctrl_handler_ptr = CMPFUNC(_ctrl_handler)
+    ctypes.windll.kernel32.SetConsoleCtrlHandler(_ctrl_handler_ptr, True)
+
 def main():
+    setup_ctrl_c_handler()
     set_dpi_awareness()
     
     api = DesktopAPI()
@@ -157,11 +175,14 @@ def main():
         js_api=api,
         resizable=False,
         frameless=True,
-        on_top=False
+        on_top=True
     )
     
     api.set_window(window)
+    global _global_window
+    _global_window = window
     hotkey_mgr = HotkeyManager(window, api)
+    api._hotkey_mgr = hotkey_mgr
     
     window.events.loaded += lambda: on_window_ready(window, api, hotkey_mgr)
     

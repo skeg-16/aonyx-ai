@@ -12,12 +12,13 @@ def get_window_rect(hwnd):
 
 def run_integration_test():
     print("Starting tests...")
-    # Launch the app in a subprocess using the virtualenv Python interpreter
-    proc = subprocess.Popen([r"venv\\Scripts\\python.exe", "main.py"], cwd=r"C:\\Users\\User\\Documents\\JARVIS")
+    import sys
+    # Launch the app in a subprocess using the current Python interpreter
+    proc = subprocess.Popen([sys.executable, "main.py"], cwd=r"C:\\Users\\User\\Documents\\JARVIS")
     # Give the UI time to initialise
     time.sleep(8)
     # Find the main window by its title – this is the HUD window created by PyWebView
-    hwnd = user32.FindWindowW(None, "JARVIS / WHIS Foundation")
+    hwnd = user32.FindWindowW(None, "Aonyx")
     if not hwnd:
         print("Failed to find window!")
         proc.kill()

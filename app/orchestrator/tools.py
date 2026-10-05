@@ -18,10 +18,11 @@ _OP_MAP = {
 }
 
 def _eval_expr(node):
-    # Support both ast.Num (legacy) and ast.Constant (Python 3.8+)
-    if isinstance(node, (ast.Num, ast.Constant)):
-        # ast.Constant may have 'value' attribute; ast.Num has 'n'
-        return getattr(node, 'n', getattr(node, 'value', None))
+    # ast.Num was removed in Python 3.14; ast.Constant is the only literal node.
+    if isinstance(node, ast.Constant):
+        if isinstance(node.value, bool) or not isinstance(node.value, (int, float, complex)):
+            raise TypeError("Only numeric constants are allowed")
+        return node.value
     elif isinstance(node, ast.BinOp):
         return _OP_MAP[type(node.op)](_eval_expr(node.left), _eval_expr(node.right))
     elif isinstance(node, ast.UnaryOp):
@@ -208,17 +209,63 @@ registry.register(
 )
 
 registry.register(
-    "remember_information",
-    "Saves a piece of information to long-term memory.",
-    {"type": "object", "properties": {"content": {"type": "string"}, "tags": {"type": "string"}}, "required": ["content"]},
+    "STORE_MEMORY",
+    "Stores information in memory. Categories: SHORT_TERM, LONG_TERM, USER_PREF, TASK.",
+    {
+        "type": "object", 
+        "properties": {
+            "category": {"type": "string", "enum": ["SHORT_TERM", "LONG_TERM", "USER_PREF", "TASK"]},
+            "content": {"type": "string"},
+            "tags": {"type": "string"}
+        }, 
+        "required": ["category", "content"]
+    },
     ToolPermission.SAFE,
-    lambda args: {"status": "ok", "data": memory.remember(args["content"], args.get("tags", "")), "summary": "Saved to memory"}
+    lambda args: {"status": "ok", "data": memory.manager.store_memory(args.get("category", "LONG_TERM"), args["content"], args.get("tags", "")), "summary": f"Stored in {args.get('category', 'LONG_TERM')}"}
 )
 
 registry.register(
-    "retrieve_memory",
-    "Searches long-term memory by keyword.",
-    {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]},
+    "RETRIEVE_MEMORY",
+    "Searches memory by keyword and optionally category.",
+    {
+        "type": "object", 
+        "properties": {
+            "query": {"type": "string"},
+            "category": {"type": "string", "enum": ["SHORT_TERM", "LONG_TERM", "USER_PREF", "TASK"]}
+        }, 
+        "required": ["query"]
+    },
     ToolPermission.SAFE,
-    lambda args: {"status": "ok", "data": memory.retrieve(args["query"]), "summary": "Memory retrieved"}
+    lambda args: {"status": "ok", "data": memory.manager.retrieve_memory(args["query"], args.get("category")), "summary": "Memory retrieved"}
+)
+
+registry.register(
+    "UPDATE_MEMORY",
+    "Updates an existing memory entry by its ID.",
+    {
+        "type": "object", 
+        "properties": {
+            "id": {"type": "integer"},
+            "content": {"type": "string"},
+            "category": {"type": "string", "enum": ["SHORT_TERM", "LONG_TERM", "USER_PREF", "TASK"]},
+            "tags": {"type": "string"}
+        }, 
+        "required": ["id"]
+    },
+    ToolPermission.SAFE,
+    lambda args: {"status": "ok", "data": memory.manager.update_memory(args["id"], args.get("content"), args.get("category"), args.get("tags")), "summary": "Memory updated"}
+)
+
+registry.register(
+    "DELETE_MEMORY",
+    "Deletes an existing memory entry by its ID.",
+    {
+        "type": "object", 
+        "properties": {
+            "id": {"type": "integer"}
+        }, 
+        "required": ["id"]
+    },
+    ToolPermission.SAFE,
+    lambda args: {"status": "ok", "data": memory.manager.delete_memory(args["id"]), "summary": "Memory deleted"}
 )

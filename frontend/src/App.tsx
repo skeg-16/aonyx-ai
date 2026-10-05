@@ -3,7 +3,7 @@ import { useStore } from './store';
 import { Core3D } from './Core3D';
 
 const App: React.FC = () => {
-    const { state, message, errorText, isVisible, rms } = useStore();
+    const { state, message, errorText, isVisible, rms, memoryCount } = useStore();
     const [input, setInput] = useState('');
     const [lastInput, setLastInput] = useState('');
     const [isCompact, setIsCompact] = useState(window.innerHeight < 300);
@@ -107,6 +107,7 @@ const App: React.FC = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>OLLAMA</span><span>OK</span></div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>MODEL</span><span>LLAMA3</span></div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>CORE</span><span style={{color: state==='ERROR'?'#ff3b4e':'#9db9ff'}}>{state}</span></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>MEMORY</span><span style={{color: '#9db9ff'}}>{memoryCount > 0 ? `${memoryCount} ENTRIES` : 'EMPTY'}</span></div>
             </div>
 
             {/* Status Text Overlay near Core */}

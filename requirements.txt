@@ -8,3 +8,4 @@ faster-whisper
 numpy
 pywin32
 psutil
+jsonschema

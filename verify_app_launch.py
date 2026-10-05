@@ -67,48 +67,67 @@ def static_check(target):
     return False, "not on PATH and no App Paths entry"
 
 
+IGNORED_PROCS = {"python.exe", "pythonw.exe", "conhost.exe", "powershell.exe", "pwsh.exe",
+                 "backgroundtaskhost.exe", "runtimebroker.exe", "searchhost.exe", "smartscreen.exe"}
+# targets whose real process name differs from the configured target
+PROC_ALIAS = {"ms-settings:": "systemsettings.exe", "calc.exe": "calculatorapp.exe"}
+
+
 def verify(name, wait=12.0):
     target = ALLOWED_APPS[name]
     ok_static, why = static_check(target)
     before_w = set(visible_windows())
+    running_before = {(p.info["name"] or "").lower() for p in psutil.process_iter(["name"])}
     t0 = time.time()
     result = open_app(name)
     status = result["status"]
 
-    new_w, new_pids = {}, set()
+    new_w, new_procs = {}, {}
     deadline = time.time() + wait
     while time.time() < deadline:
         time.sleep(0.5)
         cur = visible_windows()
         new_w = {h: v for h, v in cur.items() if h not in before_w}
-        new_pids = {p.pid for p in psutil.process_iter(["create_time"])
-                    if (p.info["create_time"] or 0) >= t0 - 0.5}
-        if new_w:
+        new_procs = {p.pid: p.info["name"] for p in psutil.process_iter(["name", "create_time"])
+                     if (p.info["create_time"] or 0) >= t0 - 0.5
+                     and p.pid != os.getpid()
+                     and (p.info["name"] or "").lower() not in IGNORED_PROCS}
+        if new_w and new_procs:
             break
 
-    appeared = bool(new_w)
-    # cleanup: only what this launch created
+    # Evidence ladder: WINDOW (strongest) > PROCESS > HANDOFF (app was already running
+    # and the OS routed the launch to that instance, so no new process is expected).
+    exe = PROC_ALIAS.get(str(target).lower(), os.path.basename(str(target)).lower())
+    handoff = (not new_procs and not new_w and exe and exe in running_before)
+    evidence = "WINDOW" if new_w else "PROCESS" if new_procs else "HANDOFF" if handoff else "NONE"
+
+    # cleanup: only what this launch created, never apps that were already running
     for hwnd in new_w:
         user32.PostMessageW(hwnd, WM_CLOSE, 0, 0)
     time.sleep(1.5)
-    for pid in new_pids:
+    for pid, pname in new_procs.items():
+        if pname.lower() in running_before:
+            continue
         try:
-            p = psutil.Process(pid)
-            if p.create_time() >= t0 - 0.5 and p.pid != os.getpid() and p.name().lower() not in (
-                    "python.exe", "pythonw.exe", "conhost.exe", "cmd.exe", "powershell.exe", "pwsh.exe"):
-                p.terminate()
+            psutil.Process(pid).terminate()
         except Exception:
             pass
     return {
         "name": name, "target": target, "static_ok": ok_static, "static_why": why,
         "tool_status": status, "tool_data": result["data"],
-        "window_appeared": appeared,
-        "windows": [v[0][:60] for v in new_w.values()],
+        "evidence": evidence,
+        "window_appeared": bool(new_w),
+        "windows": [v[0][:60] for v in list(new_w.values())[:3]],
+        "procs": sorted(set(new_procs.values()))[:5],
     }
 
 
 def main():
     names = sys.argv[1:] or list(ALLOWED_APPS)
+    desktop = len(visible_windows())
+    print(f"Visible titled windows on this desktop: {desktop}")
+    if desktop == 0:
+        print("WARNING: no visible windows -> screen locked/disconnected? WINDOW evidence is unavailable.")
     rows = []
     for n in names:
         if n not in ALLOWED_APPS:
@@ -117,14 +136,14 @@ def main():
         print(f"... launching {n}", flush=True)
         r = verify(n)
         rows.append(r)
-        verdict = "PASS" if (r["tool_status"] == "ok" and r["window_appeared"]) else "FAIL"
-        print(f"[{verdict}] {n}: tool={r['tool_status']} static={r['static_ok']} ({r['static_why']}) "
-              f"windows={r['windows']}", flush=True)
+        verdict = "PASS" if (r["tool_status"] == "ok" and r["evidence"] != "NONE") else "FAIL"
+        print(f"[{verdict}] {n}: tool={r['tool_status']} evidence={r['evidence']} "
+              f"static={r['static_ok']} ({r['static_why']}) windows={r['windows']} procs={r['procs']}", flush=True)
         if verdict == "FAIL":
             print(f"        tool data: {r['tool_data']}  target: {r['target']!r}", flush=True)
         time.sleep(1)
 
-    passed = [r["name"] for r in rows if r["tool_status"] == "ok" and r["window_appeared"]]
+    passed = [r["name"] for r in rows if r["tool_status"] == "ok" and r["evidence"] != "NONE"]
     failed = [r["name"] for r in rows if r["name"] not in passed]
     print("\n--- SUMMARY ---")
     print(f"PASS ({len(passed)}): {', '.join(passed)}")

@@ -8,11 +8,13 @@ interface StoreState {
     errorText: string;
     isVisible: boolean;
     rms: number;
+    memoryCount: number;
     setState: (state: AppState) => void;
     setMessage: (msg: string) => void;
     setError: (err: string) => void;
     setVisibility: (visible: boolean) => void;
     setRms: (rms: number) => void;
+    setMemoryCount: (count: number) => void;
 }
 
 export const useStore = create<StoreState>((set) => ({
@@ -21,11 +23,13 @@ export const useStore = create<StoreState>((set) => ({
     errorText: '',
     isVisible: true,
     rms: 0,
+    memoryCount: 0,
     setState: (state) => set({ state }),
     setMessage: (message) => set({ message }),
     setError: (errorText) => set({ errorText }),
     setVisibility: (isVisible) => set({ isVisible }),
     setRms: (rms) => set({ rms }),
+    setMemoryCount: (count) => set({ memoryCount: count }),
 }));
 
 // Listen for events from Python backend
@@ -57,5 +61,11 @@ window.addEventListener('aonyx-visibility', (e: any) => {
 window.addEventListener('whis-rms', (e: any) => {
     if (e.detail && e.detail.rms !== undefined) {
         useStore.getState().setRms(e.detail.rms);
+    }
+});
+
+window.addEventListener('aonyx-memory', (e: any) => {
+    if (e.detail && e.detail.count !== undefined) {
+        useStore.getState().setMemoryCount(e.detail.count);
     }
 });
