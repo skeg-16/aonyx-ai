@@ -18,8 +18,10 @@ _OP_MAP = {
 }
 
 def _eval_expr(node):
-    if isinstance(node, ast.Num):
-        return node.n
+    # Support both ast.Num (legacy) and ast.Constant (Python 3.8+)
+    if isinstance(node, (ast.Num, ast.Constant)):
+        # ast.Constant may have 'value' attribute; ast.Num has 'n'
+        return getattr(node, 'n', getattr(node, 'value', None))
     elif isinstance(node, ast.BinOp):
         return _OP_MAP[type(node.op)](_eval_expr(node.left), _eval_expr(node.right))
     elif isinstance(node, ast.UnaryOp):
@@ -89,8 +91,14 @@ def open_app(app_name):
         }
     try:
         if os.name == 'nt':
-            # Use cmd /c start to reliably launch GUI apps on Windows
-            subprocess.Popen(['cmd', '/c', 'start', '', target], shell=False)
+            # Try os.startfile first; if it fails, fall back to subprocess.Popen which can launch by name.
+            try:
+                os.startfile(target)
+            except Exception:
+                try:
+                    subprocess.Popen([target], shell=False)
+                except Exception as e:
+                    return {"status": "error", "data": str(e), "summary": f"Failed to launch {app_name}"}
         else:
             subprocess.Popen([target], shell=False)
         return {"status": "ok", "data": f"Opened {app_name}", "summary": f"Launched {app_name}"}
