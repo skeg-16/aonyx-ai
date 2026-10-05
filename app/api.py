@@ -193,6 +193,11 @@ class DesktopAPI:
             if self._voice_engine.start_listening():
                 self._set_state("LISTENING")
                 self._set_message("Listening...")
+                
+    def stop_speaking(self):
+        """Called from frontend to interrupt speech"""
+        logger.info("STOP SPEAKING requested from UI.")
+        self._voice_engine.interrupt_tts()
 
     # --- JS Accessible Methods ---
     def send_message(self, text: str):

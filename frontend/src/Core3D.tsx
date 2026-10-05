@@ -1,7 +1,8 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Icosahedron, Sphere, Ring, Points, PointMaterial } from '@react-three/drei';
 import * as THREE from 'three';
+import { EffectComposer, Bloom, Vignette, Noise, Scanline } from '@react-three/postprocessing';
 
 const colors = {
   primary: '#083fc3',
@@ -10,16 +11,17 @@ const colors = {
   primarySoft: '#9db9ff',
   primaryDark: '#052a82',
   error: '#ff3b4e',
+  hover: '#00d9ff',
 };
 
-const HUDRing = ({ radius, width, speed, segments, opacity, state, reverse = false, rms = 0 }: any) => {
+const HUDRing = ({ radius, width, speed, segments, opacity, state, reverse = false, rms = 0, isHovered = false }: any) => {
   const ref = useRef<THREE.Group>(null!);
   const matRef = useRef<THREE.MeshBasicMaterial>(null!);
 
   useFrame((_, delta) => {
     if (!ref.current) return;
     let currentSpeed = speed;
-    let targetColor = colors.primaryLight;
+    let targetColor = isHovered ? colors.hover : colors.primaryLight;
     
     if (state === 'THINKING') currentSpeed = speed * 4.0;
     if (state === 'SPEAKING') currentSpeed = speed * 2.0 + (rms / 100) * 3.0;
@@ -28,6 +30,10 @@ const HUDRing = ({ radius, width, speed, segments, opacity, state, reverse = fal
     if (state === 'ERROR') {
       currentSpeed = speed * 10.0;
       targetColor = colors.error;
+    }
+
+    if (isHovered && state === 'IDLE') {
+        currentSpeed = speed * 2.0;
     }
 
     ref.current.rotation.z += (reverse ? -1 : 1) * delta * currentSpeed;
@@ -50,7 +56,7 @@ const HUDRing = ({ radius, width, speed, segments, opacity, state, reverse = fal
   return <group ref={ref}>{rings}</group>;
 };
 
-const Lattice = ({ state, rms = 0 }: { state: string, rms?: number }) => {
+const Lattice = ({ state, rms = 0, isHovered = false }: { state: string, rms?: number, isHovered?: boolean }) => {
   const meshRef = useRef<THREE.Mesh>(null!);
   const matRef = useRef<THREE.MeshBasicMaterial>(null!);
   
@@ -58,8 +64,8 @@ const Lattice = ({ state, rms = 0 }: { state: string, rms?: number }) => {
     if (!meshRef.current || !matRef.current) return;
     
     let targetScale = 1.0;
-    let targetColor = colors.primary;
-    let rotSpeed = 0.2;
+    let targetColor = isHovered ? colors.hover : colors.primary;
+    let rotSpeed = isHovered ? 0.4 : 0.2;
     
     if (state === 'LISTENING') {
         targetScale = 0.95 + (rms / 100) * 0.15;
@@ -107,7 +113,7 @@ const Lattice = ({ state, rms = 0 }: { state: string, rms?: number }) => {
   );
 };
 
-const Nucleus = ({ state, rms = 0 }: { state: string, rms?: number }) => {
+const Nucleus = ({ state, rms = 0, isHovered = false }: { state: string, rms?: number, isHovered?: boolean }) => {
   const meshRef = useRef<THREE.Mesh>(null!);
   const matRef = useRef<THREE.MeshBasicMaterial>(null!);
   const lightRef = useRef<THREE.PointLight>(null!);
@@ -117,7 +123,7 @@ const Nucleus = ({ state, rms = 0 }: { state: string, rms?: number }) => {
     const t = clock.getElapsedTime();
     
     let scale = 1.0;
-    let color = colors.primaryLight;
+    let color = isHovered ? colors.hover : colors.primaryLight;
     
     if (state === 'IDLE') {
         scale = 1.0 + Math.sin(t * 1.5) * 0.1;
@@ -136,6 +142,10 @@ const Nucleus = ({ state, rms = 0 }: { state: string, rms?: number }) => {
     } else if (state === 'ERROR') {
         scale = 1.5 + (Math.random() - 0.5) * 0.5;
         color = colors.error;
+    }
+
+    if (isHovered && state === 'IDLE') {
+        scale *= 1.05;
     }
 
     if (state !== 'ERROR') {
@@ -159,7 +169,7 @@ const Nucleus = ({ state, rms = 0 }: { state: string, rms?: number }) => {
   );
 };
 
-const EnergyFilaments = ({ state, rms = 0 }: { state: string, rms?: number }) => {
+const EnergyFilaments = ({ state, rms = 0, isHovered = false }: { state: string, rms?: number, isHovered?: boolean }) => {
   const points = useRef<THREE.Points>(null!);
   const matRef = useRef<THREE.PointsMaterial>(null!);
   
@@ -179,8 +189,8 @@ const EnergyFilaments = ({ state, rms = 0 }: { state: string, rms?: number }) =>
 
   useFrame((_, delta) => {
     if (!points.current) return;
-    let speed = 0.2;
-    let color = colors.primaryGlow;
+    let speed = isHovered ? 0.4 : 0.2;
+    let color = isHovered ? colors.hover : colors.primaryGlow;
     
     if (state === 'LISTENING') { speed = 0.2 + (rms / 100) * 2.0; }
     if (state === 'THINKING') { speed = 2.0; color = colors.primaryLight; }
@@ -203,20 +213,131 @@ const EnergyFilaments = ({ state, rms = 0 }: { state: string, rms?: number }) =>
   );
 };
 
-export const Core3D: React.FC<{state: string, isVisible: boolean, rms?: number}> = ({ state, isVisible, rms = 0 }) => {
+
+
+const InnerGlow = ({ state, rms = 0, isHovered = false }: { state: string, rms?: number, isHovered?: boolean }) => {
+  const meshRef = useRef<THREE.Mesh>(null!);
+  const matRef = useRef<THREE.MeshBasicMaterial>(null!);
+
+  useFrame(({ clock }) => {
+    if (!meshRef.current || !matRef.current) return;
+    const t = clock.getElapsedTime();
+    let scale = 1.0;
+    
+    if (state === 'IDLE') scale = 1.0 + Math.sin(t * 1.2) * 0.05;
+    else if (state === 'THINKING') scale = 1.1 + Math.sin(t * 5.0) * 0.1;
+    else if (state === 'SPEAKING') scale = 1.1 + (rms / 100) * 0.3;
+    else if (state === 'TOOL_EXECUTION') scale = 0.9 + Math.sin(t * 15.0) * 0.05;
+    else if (state === 'ERROR') scale = 1.2 + (Math.random() - 0.5) * 0.1;
+
+    if (isHovered && state === 'IDLE') {
+        scale *= 1.1;
+    }
+
+    meshRef.current.scale.lerp(new THREE.Vector3(scale, scale, scale), 0.1);
+  });
+
   return (
-    <div style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 0 }}>
-      <Canvas frameloop={isVisible ? 'always' : 'demand'} camera={{ position: [0, 0, 4.5], fov: 50 }} style={{ background: 'transparent' }} dpr={[1, 2]}>
+    <Icosahedron ref={meshRef} args={[0.7, 4]}>
+      <meshBasicMaterial ref={matRef} color={isHovered ? colors.hover : colors.primaryGlow} transparent opacity={isHovered ? 0.3 : 0.15} blending={THREE.AdditiveBlending} depthWrite={false} />
+    </Icosahedron>
+  );
+};
+
+const OuterShell = ({ state, rms = 0, isHovered = false }: { state: string, rms?: number, isHovered?: boolean }) => {
+  const meshRef = useRef<THREE.Mesh>(null!);
+  const matRef = useRef<THREE.MeshBasicMaterial>(null!);
+  
+  useFrame(({ clock }, delta) => {
+    if (!meshRef.current || !matRef.current) return;
+    
+    let targetScale = 1.0;
+    let targetColor = isHovered ? colors.hover : colors.primaryDark;
+    let rotSpeed = isHovered ? -0.2 : 0.1;
+    
+    if (state === 'LISTENING') {
+        targetScale = 0.98;
+        targetColor = colors.primary;
+        rotSpeed = 0.3 + (rms / 100) * 1.0;
+    } else if (state === 'THINKING') {
+        targetScale = 1.02;
+        rotSpeed = 0.8;
+    } else if (state === 'SPEAKING') {
+        targetScale = 1.05 + (rms / 100) * 0.1;
+        targetColor = colors.primary;
+        rotSpeed = 0.4 + (rms / 100) * 1.5;
+    } else if (state === 'TOOL_EXECUTION') {
+        targetScale = 0.95;
+        targetColor = colors.primaryLight;
+        rotSpeed = 2.0;
+    } else if (state === 'ERROR') {
+        targetScale = 1.1;
+        targetColor = colors.error;
+        rotSpeed = 3.0;
+    } else {
+        targetScale = 1.0 + Math.sin(clock.getElapsedTime() * 1.0) * 0.01;
+    }
+
+    if (isHovered && state === 'IDLE') {
+        targetScale *= 1.03;
+    }
+
+    meshRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
+    meshRef.current.rotation.y -= delta * rotSpeed * 0.5;
+    meshRef.current.rotation.z += delta * rotSpeed * 0.2;
+    
+    matRef.current.color.lerp(new THREE.Color(targetColor), 0.05);
+  });
+
+  return (
+    <Icosahedron ref={meshRef} args={[1.5, 1]}>
+      <meshBasicMaterial ref={matRef} color={colors.primaryDark} wireframe transparent opacity={isHovered ? 0.3 : 0.2} blending={THREE.AdditiveBlending} />
+    </Icosahedron>
+  );
+};
+
+export const Core3D: React.FC<{state: string, isVisible: boolean, rms?: number, isCompact?: boolean, onCoreClick?: () => void}> = ({ state, isVisible, rms = 0, isCompact = false, onCoreClick }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  // A large invisible sphere to catch pointer events easily
+  const HitBox = () => (
+    <mesh 
+      onPointerOver={() => setIsHovered(true)} 
+      onPointerOut={() => setIsHovered(false)}
+      onClick={onCoreClick}
+      visible={false}
+    >
+      <sphereGeometry args={[2.5, 16, 16]} />
+      <meshBasicMaterial />
+    </mesh>
+  );
+
+  return (
+    <div style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 0, cursor: isHovered ? 'pointer' : 'default' }}>
+      <Canvas frameloop={isVisible ? 'always' : 'demand'} camera={{ position: [0, 0, isCompact ? 4.5 : 3.8], fov: isCompact ? 50 : 60 }} style={{ background: 'transparent' }} dpr={[1, 2]}>
         
-        <Nucleus state={state} rms={rms} />
-        <Lattice state={state} rms={rms} />
-        <EnergyFilaments state={state} rms={rms} />
+        <HitBox />
         
-        {/* HUD Rings facing camera */}
-        <HUDRing radius={1.7} width={0.02} speed={0.5} segments={3} opacity={0.6} state={state} rms={rms} />
-        <HUDRing radius={1.85} width={0.01} speed={0.3} segments={5} opacity={0.4} state={state} reverse rms={rms} />
-        <HUDRing radius={2.0} width={0.03} speed={0.8} segments={2} opacity={0.3} state={state} rms={rms} />
-        <HUDRing radius={2.15} width={0.005} speed={0.2} segments={8} opacity={0.2} state={state} reverse rms={rms} />
+        <Nucleus state={state} rms={rms} isHovered={isHovered} />
+        <InnerGlow state={state} rms={rms} isHovered={isHovered} />
+        <Lattice state={state} rms={rms} isHovered={isHovered} />
+        <OuterShell state={state} rms={rms} isHovered={isHovered} />
+        <EnergyFilaments state={state} rms={rms} isHovered={isHovered} />
+        
+        {/* HUD Rings facing camera - Scale up slightly in full screen */}
+        <group scale={isCompact ? 1.0 : 1.2}>
+          <HUDRing radius={1.7} width={0.02} speed={0.5} segments={3} opacity={0.6} state={state} rms={rms} isHovered={isHovered} />
+          <HUDRing radius={1.85} width={0.01} speed={0.3} segments={5} opacity={0.4} state={state} reverse rms={rms} isHovered={isHovered} />
+          <HUDRing radius={2.0} width={0.03} speed={0.8} segments={2} opacity={0.3} state={state} rms={rms} isHovered={isHovered} />
+          <HUDRing radius={2.15} width={0.005} speed={0.2} segments={8} opacity={0.2} state={state} reverse rms={rms} isHovered={isHovered} />
+        </group>
+
+        <EffectComposer>
+            <Bloom luminanceThreshold={0.15} luminanceSmoothing={0.9} height={300} intensity={isCompact ? 1.5 : (isHovered ? 3.0 : 2.5)} />
+            <Noise opacity={isCompact ? 0.02 : 0.03} />
+            <Vignette eskil={false} offset={0.1} darkness={1.1} />
+            <Scanline density={isCompact ? 1.5 : 2.0} opacity={0.05} />
+        </EffectComposer>
 
       </Canvas>
     </div>

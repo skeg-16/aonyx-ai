@@ -115,8 +115,17 @@ class HotkeyManager:
             self.is_hidden = False
             self.is_expanded = False
         elif not self.is_expanded:
-            logger.info("Expanding window")
-            self.window.resize(1000, 700)
+            logger.info("Expanding window to full screen")
+            rect = wintypes.RECT()
+            user32.SystemParametersInfoW(48, 0, ctypes.byref(rect), 0)
+            work_w = rect.right - rect.left
+            work_h = rect.bottom - rect.top
+            if self.hwnd:
+                # 0x0004=SWP_NOZORDER, 0x0020=SWP_FRAMECHANGED
+                user32.SetWindowPos(self.hwnd, 0, rect.left, rect.top, work_w, work_h, 0x0004 | 0x0020)
+            else:
+                self.window.resize(work_w, work_h)
+                self.window.move(rect.left, rect.top)
             self.is_expanded = True
         else:
             logger.info("Hiding window")

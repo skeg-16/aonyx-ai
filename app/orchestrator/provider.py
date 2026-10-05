@@ -56,7 +56,8 @@ class OllamaProvider(LLMProvider):
             "14. Do NOT fabricate information. If a tool fails, web info is unavailable, or memory is missing, clearly state what is known and what is unavailable.\n"
             "15. Web and Desktop context are ephemeral. Do NOT store them in memory unless explicitly asked.\n"
             "16. Combine reasoning across multiple tools when necessary to solve a user's task. Execute only the necessary steps and stop when the objective is met.\n"
-            "17. Your 'response' text is spoken aloud by a TTS engine. Use clean, natural language. Avoid reciting raw URLs, JSON, markdown symbols, or debug traces in your response.\n\n"
+            "17. Your 'response' text is spoken aloud by a TTS engine. Use clean, natural language. Avoid reciting raw URLs, JSON, markdown symbols, or debug traces in your response.\n"
+            "18. SILENT CONTEXT: You receive '--- DESKTOP_CONTEXT ---' and '--- RELEVANT_MEMORY ---' automatically. Do NOT narrate or mention them unless the user's request explicitly requires it. For example, if the user says 'Remember I like Yakult', just store it—DO NOT reply 'You are looking at VS Code and I will remember Yakult'. Keep your answers natural and focused ONLY on the user's explicit prompt.\n\n"
             "EXAMPLES:\n"
             "User: 'what is my favorite color?'\n"
             '{"tool": "RETRIEVE_MEMORY", "arguments": {"query": "favorite color"}}\n\n'
