@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/banner.svg" alt="AONYX - a local-first AI assistant that listens, reasons, acts and remembers" width="100%">
+<img src="banner.svg" alt="AONYX - a local-first AI assistant that listens, reasons, acts and remembers" width="100%">
 
 <br>
 
@@ -14,7 +14,7 @@
 
 </div>
 
-<img src="docs/divider.svg" alt="" width="100%">
+<img src="divider.svg" alt="" width="100%">
 
 ## Overview
 
@@ -24,19 +24,19 @@ It is not a chatbot wrapped in a window. Behind the HUD sits an orchestration la
 
 Everything runs locally: speech recognition, the language model, speech synthesis and memory. There is no cloud account and no telemetry. The only traffic that leaves your machine is the web lookups you allow.
 
-<img src="docs/divider.svg" alt="" width="100%">
+<img src="divider.svg" alt="" width="100%">
 
 ## Capabilities
 
-<img src="docs/capabilities.svg" alt="Aonyx capabilities: holographic core, voice interface, AI orchestration, persistent memory, desktop intelligence, web intelligence, personality layer and instant launcher" width="100%">
+<img src="capabilities.svg" alt="Aonyx capabilities: holographic core, voice interface, AI orchestration, persistent memory, desktop intelligence, web intelligence, personality layer and instant launcher" width="100%">
 
-<img src="docs/divider.svg" alt="" width="100%">
+<img src="divider.svg" alt="" width="100%">
 
 ## How it thinks
 
 Every request, typed or spoken, goes through the same loop. The model decides whether it needs a tool, and every tool call is validated and permission-checked before it runs. The model then answers from the real result, not from a guess. If a tool fails, Aonyx reports the actual failure.
 
-<img src="docs/flow.svg" alt="Reasoning loop: input, intent, need a tool, select, validate, execute, observe, reason, respond, speak" width="100%">
+<img src="flow.svg" alt="Reasoning loop: input, intent, need a tool, select, validate, execute, observe, reason, respond, speak" width="100%">
 
 The loop repeats until the model answers without requesting another tool, with a hard cap on steps and a total time budget.
 
@@ -44,15 +44,15 @@ The loop repeats until the model answers without requesting another tool, with a
 
 The HUD is driven by one state machine. The 3D core maps directly to these states: each one changes how the core moves, glows and pulses, and the core never fully stops moving.
 
-<img src="docs/states.svg" alt="State machine: idle, listening, thinking, tool execution, speaking, with error recovering to idle" width="100%">
+<img src="states.svg" alt="State machine: idle, listening, thinking, tool execution, speaking, with error recovering to idle" width="100%">
 
-<img src="docs/divider.svg" alt="" width="100%">
+<img src="divider.svg" alt="" width="100%">
 
 ## Security model
 
 A language model should never be trusted with unrestricted access, so Aonyx is built around gates.
 
-<img src="docs/security.svg" alt="Security gates: schema check, allowlist, permission level and confirmation before a tool runs, with every call written to an audit log" width="100%">
+<img src="security.svg" alt="Security gates: schema check, allowlist, permission level and confirmation before a tool runs, with every call written to an audit log" width="100%">
 
 - **Explicit tool allowlist.** The model can only call registered tools. There is no shell tool, no `eval` and no "run command" capability, by design.
 - **Schema validation.** Every tool call is checked against its input schema. Malformed or extra arguments are rejected.
@@ -63,13 +63,13 @@ A language model should never be trusted with unrestricted access, so Aonyx is b
 - **Audit trail.** Tool calls are logged with arguments, permission result, duration and outcome. File contents and secrets are not logged.
 - **Privacy by default.** The microphone records only while listening, and the HUD shows whenever audio is being captured.
 
-<img src="docs/divider.svg" alt="" width="100%">
+<img src="divider.svg" alt="" width="100%">
 
 ## Architecture
 
 The interface and the Python core talk over the pywebview bridge. The language model sits behind a provider interface, so the orchestrator, tools and UI never depend on Ollama directly. Replacing the model means writing one adapter.
 
-<img src="docs/architecture.svg" alt="Architecture: React and WebGL interface, pywebview bridge, Python core with orchestrator, tool registry, memory, voice and provider interface, connected to Ollama, audio, web and Windows" width="100%">
+<img src="architecture.svg" alt="Architecture: React and WebGL interface, pywebview bridge, Python core with orchestrator, tool registry, memory, voice and provider interface, connected to Ollama, audio, web and Windows" width="100%">
 
 ### Tech stack
 
@@ -85,7 +85,7 @@ The interface and the Python core talk over the pywebview bridge. The language m
 | Memory | SQLite |
 | Testing | pytest |
 
-<img src="docs/divider.svg" alt="" width="100%">
+<img src="divider.svg" alt="" width="100%">
 
 ## Getting started
 
@@ -153,7 +153,7 @@ Both hotkeys are configurable in `.env`. If a hotkey conflicts with another appl
 | Allowed folders | Folders the file tools may read |
 | Tool limits | Maximum steps and timeouts per request |
 
-<img src="docs/divider.svg" alt="" width="100%">
+<img src="divider.svg" alt="" width="100%">
 
 ## Extending Aonyx
 
@@ -186,7 +186,6 @@ aonyx/
         src/
             components/     3D core, command bar, panels, activity feed
             store/          Zustand state machine
-    docs/                   README diagrams
     tests/                  pytest suites
     aonyx_app.pyw           launcher, window manager, global hotkeys
     .env.example
@@ -211,7 +210,7 @@ The suites cover audio chunking and gapless playback timing, web tool security (
 
 Add your license here, for example MIT.
 
-<img src="docs/divider.svg" alt="" width="100%">
+<img src="divider.svg" alt="" width="100%">
 
 <div align="center">
 
