@@ -206,12 +206,6 @@ The suites cover audio chunking and gapless playback timing, web tool security (
 - Speech synthesis uses the Windows SAPI5 voices installed on your system, so voice quality varies by machine.
 - The compact orb is an opaque window. True transparency with WebGL is unreliable on WebView2.
 
-## License
-
-Add your license here, for example MIT.
-
-<img src="divider.svg" alt="" width="100%">
-
 <div align="center">
 
 **AONYX** &nbsp;|&nbsp; built local, runs local, stays yours.
