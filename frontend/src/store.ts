@@ -9,12 +9,14 @@ interface StoreState {
     isVisible: boolean;
     rms: number;
     memoryCount: number;
+    segments: any[];
     setState: (state: AppState) => void;
     setMessage: (msg: string) => void;
     setError: (err: string) => void;
     setVisibility: (visible: boolean) => void;
     setRms: (rms: number) => void;
     setMemoryCount: (count: number) => void;
+    setSegments: (segments: any[]) => void;
 }
 
 export const useStore = create<StoreState>((set) => ({
@@ -24,12 +26,14 @@ export const useStore = create<StoreState>((set) => ({
     isVisible: true,
     rms: 0,
     memoryCount: 0,
+    segments: [],
     setState: (state) => set({ state }),
     setMessage: (message) => set({ message }),
     setError: (errorText) => set({ errorText }),
     setVisibility: (isVisible) => set({ isVisible }),
     setRms: (rms) => set({ rms }),
     setMemoryCount: (count) => set({ memoryCount: count }),
+    setSegments: (segments) => set({ segments }),
 }));
 
 // Listen for events from Python backend
@@ -45,6 +49,17 @@ window.addEventListener('whis-message', (e: any) => {
     }
 });
 
+window.addEventListener('whis-run-start', () => {
+    useStore.getState().setSegments([]);
+});
+
+window.addEventListener('whis-seg-start', (e: any) => {
+    if (e.detail) {
+        const segs = useStore.getState().segments;
+        useStore.getState().setSegments([...segs, e.detail]);
+    }
+});
+
 window.addEventListener('whis-error', (e: any) => {
     if (e.detail && e.detail.errorText) {
         useStore.getState().setError(e.detail.errorText);
@@ -55,12 +70,6 @@ window.addEventListener('whis-error', (e: any) => {
 window.addEventListener('aonyx-visibility', (e: any) => {
     if (e.detail && e.detail.visible !== undefined) {
         useStore.getState().setVisibility(e.detail.visible);
-    }
-});
-
-window.addEventListener('whis-rms', (e: any) => {
-    if (e.detail && e.detail.rms !== undefined) {
-        useStore.getState().setRms(e.detail.rms);
     }
 });
 

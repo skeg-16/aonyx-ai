@@ -1,76 +1,180 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from './store';
 import { Core3D } from './Core3D';
 
-const Waveform: React.FC<{rms: number, state: string}> = ({rms, state}) => {
+import { audioBus, live, interaction } from './shared';
+
+const Waveform: React.FC = () => {
     const bars = 40;
-    const isVoiceActive = state === 'LISTENING' || state === 'SPEAKING';
-    
+    const containerRef = useRef<HTMLDivElement>(null);
+    const bgRef = useRef<HTMLDivElement>(null);
+    const primaryBarsRef = useRef<(HTMLDivElement | null)[]>([]);
+    const reflectBarsRef = useRef<(HTMLDivElement | null)[]>([]);
+
+    useEffect(() => {
+        let rafId: number;
+        const loop = () => {
+            const st = live.state;
+            const rms = audioBus.raw * 100;
+            const isVoiceActive = st === 'LISTENING' || st === 'SPEAKING';
+            
+            if (containerRef.current) {
+                containerRef.current.style.opacity = isVoiceActive ? '1' : (st === 'THINKING' ? '0.4' : '0');
+            }
+            if (bgRef.current) {
+                bgRef.current.style.background = st === 'LISTENING' ? '#ff3b4e' : '#5b8cff';
+                bgRef.current.style.opacity = isVoiceActive ? ((rms / 200) + 0.1).toString() : '0.05';
+            }
+
+            const color = st === 'LISTENING' ? '#ff3b4e' : (st === 'ERROR' ? '#ff3b4e' : (st === 'THINKING' ? '#cfe0ff' : '#5b8cff'));
+            const shadow = st === 'THINKING' ? `0 0 15px ${color}` : `0 0 10px ${color}`;
+
+            for (let i = 0; i < bars; i++) {
+                const normalized = (i - bars/2) / (bars/2);
+                const bell = Math.exp(-0.5 * Math.pow(normalized / 0.4, 2));
+                const intensity = st === 'THINKING' ? 15 + Math.sin(Date.now() / 200 + i * 0.2) * 5 : rms;
+                const height = Math.max(2, (intensity * bell * (Math.random()*0.4 + 0.6)));
+
+                if (primaryBarsRef.current[i]) {
+                    primaryBarsRef.current[i]!.style.height = `${height}px`;
+                    primaryBarsRef.current[i]!.style.background = color;
+                    primaryBarsRef.current[i]!.style.boxShadow = shadow;
+                }
+                if (reflectBarsRef.current[i]) {
+                    reflectBarsRef.current[i]!.style.height = `${height}px`;
+                    reflectBarsRef.current[i]!.style.background = color;
+                }
+            }
+            
+            // Global parallax application
+            document.documentElement.style.setProperty('--px', interaction.px.toFixed(3));
+            document.documentElement.style.setProperty('--py', interaction.py.toFixed(3));
+
+            rafId = requestAnimationFrame(loop);
+        };
+        rafId = requestAnimationFrame(loop);
+        return () => cancelAnimationFrame(rafId);
+    }, []);
+
     return (
-        <div style={{
+        <div ref={containerRef} style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
             height: '80px', width: '100%', position: 'relative',
-            opacity: isVoiceActive ? 1 : (state === 'THINKING' ? 0.3 : 0),
-            transition: 'opacity 0.5s ease-in-out'
+            transition: 'opacity 0.5s ease-in-out',
+            opacity: 0
         }}>
             {/* Soft background glow */}
-            <div style={{
+            <div ref={bgRef} style={{
                 position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-                width: '300px', height: '40px', background: state === 'LISTENING' ? '#ff3b4e' : '#5b8cff',
-                filter: 'blur(30px)', opacity: isVoiceActive ? (rms / 200) + 0.1 : 0.05,
+                width: '300px', height: '40px', background: '#5b8cff',
+                filter: 'blur(30px)', opacity: 0.05,
                 borderRadius: '50%'
             }} />
             
             {/* Primary Waveform */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '3px', zIndex: 2 }}>
-                {Array.from({ length: bars }).map((_, i) => {
-                    const normalized = (i - bars/2) / (bars/2);
-                    const bell = Math.exp(-0.5 * Math.pow(normalized / 0.4, 2));
-                    const intensity = state === 'THINKING' ? 10 : rms;
-                    const height = Math.max(2, (intensity * bell * (Math.random()*0.4 + 0.6)));
-                    return (
-                        <div key={i} style={{
-                            width: '4px',
-                            height: `${height}px`,
-                            background: state === 'LISTENING' ? '#ff3b4e' : (state === 'ERROR' ? '#ff3b4e' : '#5b8cff'),
-                            borderRadius: '2px',
-                            transition: 'height 0.05s ease',
-                            boxShadow: `0 0 10px ${state === 'LISTENING' ? '#ff3b4e' : '#5b8cff'}`
-                        }} />
-                    );
-                })}
+                {Array.from({ length: bars }).map((_, i) => (
+                    <div key={i} ref={el => { primaryBarsRef.current[i] = el; }} style={{
+                        width: '4px', height: '2px', background: '#5b8cff',
+                        borderRadius: '2px', transition: 'height 0.05s ease'
+                    }} />
+                ))}
             </div>
             
             {/* Secondary Faint Waveform (Reflection) */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '3px', opacity: 0.3, transform: 'scaleY(-0.5)', marginTop: '2px' }}>
-                {Array.from({ length: bars }).map((_, i) => {
-                    const normalized = (i - bars/2) / (bars/2);
-                    const bell = Math.exp(-0.5 * Math.pow(normalized / 0.4, 2));
-                    const intensity = state === 'THINKING' ? 10 : rms;
-                    const height = Math.max(2, (intensity * bell * (Math.random()*0.4 + 0.6)));
-                    return (
-                        <div key={`ref-${i}`} style={{
-                            width: '4px',
-                            height: `${height}px`,
-                            background: state === 'LISTENING' ? '#ff3b4e' : '#5b8cff',
-                            borderRadius: '2px',
-                            transition: 'height 0.05s ease'
-                        }} />
-                    );
-                })}
+                {Array.from({ length: bars }).map((_, i) => (
+                    <div key={`ref-${i}`} ref={el => { reflectBarsRef.current[i] = el; }} style={{
+                        width: '4px', height: '2px', background: '#5b8cff',
+                        borderRadius: '2px', transition: 'height 0.05s ease'
+                    }} />
+                ))}
             </div>
         </div>
     );
 };
 
+import { speechClock } from './shared';
+
+const SegmentText: React.FC<{ seg: any }> = ({ seg }) => {
+    const containerRef = useRef<HTMLSpanElement>(null);
+    
+    const parts = React.useMemo(() => {
+        if (!seg.words || seg.words.length === 0) {
+            return <span>{seg.text}</span>;
+        }
+        const elements = [];
+        let lastIdx = 0;
+        seg.words.forEach((w: any, i: number) => {
+            if (w.cs > lastIdx) {
+                elements.push(<span key={`text-${i}`}>{seg.text.slice(lastIdx, w.cs)}</span>);
+            }
+            elements.push(<span key={`word-${i}`} data-s={w.s} data-e={w.e} style={{ transition: 'color 0.1s, text-shadow 0.1s' }}>{seg.text.slice(w.cs, w.ce)}</span>);
+            lastIdx = w.ce;
+        });
+        if (lastIdx < seg.text.length) {
+            elements.push(<span key={`text-end`}>{seg.text.slice(lastIdx)}</span>);
+        }
+        return elements;
+    }, [seg]);
+
+    useEffect(() => {
+        let rafId: number;
+        const loop = () => {
+            const sc = speechClock;
+            if (!containerRef.current) return;
+            
+            const spans = containerRef.current.querySelectorAll('span[data-s]');
+            
+            if (sc.uid === seg.uid && sc.idx === seg.idx && sc.playing) {
+                const pos = sc.pos + (performance.now() - sc.at) / 1000.0;
+                spans.forEach(span => {
+                    const s = parseFloat(span.getAttribute('data-s')!);
+                    const e = parseFloat(span.getAttribute('data-e')!);
+                    if (pos >= s - 0.1 && pos <= e + 0.1) {
+                        (span as HTMLElement).style.color = '#fff';
+                        (span as HTMLElement).style.textShadow = '0 0 10px #5b8cff, 0 0 20px #5b8cff';
+                    } else if (pos > e + 0.1) {
+                        (span as HTMLElement).style.color = '#9db9ff'; // spoken
+                        (span as HTMLElement).style.textShadow = 'none';
+                    } else {
+                        (span as HTMLElement).style.color = '#3a6ecc'; // pending
+                        (span as HTMLElement).style.textShadow = 'none';
+                    }
+                });
+            } else if (sc.uid > seg.uid || (sc.uid === seg.uid && sc.idx > seg.idx)) {
+                spans.forEach(span => {
+                    (span as HTMLElement).style.color = '#9db9ff';
+                    (span as HTMLElement).style.textShadow = 'none';
+                });
+            } else {
+                spans.forEach(span => {
+                    (span as HTMLElement).style.color = '#3a6ecc';
+                    (span as HTMLElement).style.textShadow = 'none';
+                });
+            }
+            rafId = requestAnimationFrame(loop);
+        };
+        rafId = requestAnimationFrame(loop);
+        return () => cancelAnimationFrame(rafId);
+    }, [seg.uid, seg.idx]);
+
+    return (
+        <span ref={containerRef}>
+            {parts}{seg.nl ? <><br/><br/></> : ' '}
+        </span>
+    );
+};
+
 const App: React.FC = () => {
-    const { state, message, errorText, isVisible, rms, memoryCount } = useStore();
+    const { state, message, errorText, isVisible, memoryCount, segments } = useStore();
     const [input, setInput] = useState('');
     const [lastInput, setLastInput] = useState('');
     const [isCompact, setIsCompact] = useState(window.innerHeight < 300);
     const [toolActivity, setToolActivity] = useState<{name: string, status: string} | null>(null);
     const [confirmRequest, setConfirmRequest] = useState<{name: string, args: any} | null>(null);
 
+    // ... useEffects omitted for brevity, keeping existing logic
     useEffect(() => {
         const handleTool = (e: any) => setToolActivity({name: e.detail.name, status: e.detail.status});
         const handleConfirm = (e: any) => setConfirmRequest({name: e.detail.name, args: JSON.parse(e.detail.args)});
@@ -140,7 +244,7 @@ const App: React.FC = () => {
     if (isCompact) {
         return (
             <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative', backgroundColor: '#010714' }}>
-                <Core3D state={state} isVisible={isVisible} rms={rms} isCompact={true} onCoreClick={handleCoreClick} />
+                <Core3D isVisible={isVisible} isCompact={true} onCoreClick={handleCoreClick} />
                 <div style={{
                     position: 'absolute', bottom: '10px', width: '100%', textAlign: 'center',
                     color: state === 'ERROR' ? '#ff3b4e' : '#5b8cff', fontSize: '12px',
@@ -154,7 +258,6 @@ const App: React.FC = () => {
         );
     }
 
-    // Parse message
     let userText = '';
     let aonyxText = message;
     if (message.startsWith('User: ')) {
@@ -173,15 +276,13 @@ const App: React.FC = () => {
 
     return (
         <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative' }}>
-            {/* Background Effects */}
             <div className="vignette"></div>
             <div className="film-grain"></div>
-            <div className="perspective-grid"></div>
+            <div className="tech-bg"></div>
+            <div className="aonyx-watermark">AONYX</div>
 
-            {/* 3D Core - Background */}
-            <Core3D state={state} isVisible={isVisible} rms={rms} isCompact={false} onCoreClick={handleCoreClick} />
+            <Core3D isVisible={isVisible} isCompact={false} onCoreClick={handleCoreClick} />
 
-            {/* Top Left Glass Panel */}
             <div className={`glass-panel panel-left ${state === 'LISTENING' ? 'panel-listening' : ''}`}>
                 <div className="panel-header">SYSTEM METRICS</div>
                 <div className="panel-row"><span>CPU LOAD</span><span>--%</span></div>
@@ -190,7 +291,6 @@ const App: React.FC = () => {
                 <div className="panel-row"><span>NET PING</span><span>-- MS</span></div>
             </div>
 
-            {/* Top Right Glass Panel */}
             <div className={`glass-panel panel-right ${state === 'LISTENING' ? 'panel-listening' : ''}`}>
                 <div className="panel-header">AONYX STATUS</div>
                 <div className="panel-row"><span>ORCHESTRATOR</span><span style={{color:'#5b8cff'}}>ONLINE</span></div>
@@ -199,13 +299,11 @@ const App: React.FC = () => {
                 <div className="panel-row"><span>MEMORY_DB</span><span style={{color: '#9db9ff'}}>{memoryCount > 0 ? `${memoryCount} ENTRIES` : 'EMPTY'}</span></div>
             </div>
 
-            {/* Dynamic Status Indicator */}
             <div className="status-indicator">
                 <span className="status-dot" style={{ backgroundColor: state === 'ERROR' ? '#ff3b4e' : (state === 'LISTENING' ? '#ff3b4e' : '#5b8cff') }}></span>
                 NEURAL CORE // {state}
             </div>
 
-            {/* Tool Activity HUD */}
             {toolActivity && state === 'TOOL_EXECUTION' && (
                 <div className="tool-activity">
                     <div className="tool-spinner"></div>
@@ -219,7 +317,6 @@ const App: React.FC = () => {
                 </div>
             )}
             
-            {/* Confirm Modal */}
             {confirmRequest && (
                 <div className="confirm-modal">
                     <h3>Permission Required</h3>
@@ -232,9 +329,9 @@ const App: React.FC = () => {
                 </div>
             )}
 
-            {/* Bottom Stack: Waveform -> Response -> Input Bar */}
             <div className="bottom-stack">
-                <Waveform rms={rms} state={state} />
+                <Waveform />
+
                 
                 <div className="chat-container">
                     {userText && (
@@ -242,11 +339,17 @@ const App: React.FC = () => {
                             "{userText}"
                         </div>
                     )}
-                    {aonyxText && (
+                    {segments && segments.length > 0 ? (
+                        <div className="chat-message chat-aonyx">
+                            {segments.map((seg, i) => (
+                                <SegmentText key={`${seg.uid}-${seg.idx}-${i}`} seg={seg} />
+                            ))}
+                        </div>
+                    ) : (aonyxText && (
                         <div className="chat-message chat-aonyx">
                             {aonyxText}
                         </div>
-                    )}
+                    ))}
                     
                     {state === 'ERROR' && (
                         <div className="chat-message" style={{ color: '#ff3b4e', fontWeight: 'bold', display: 'flex', gap: '15px', alignItems: 'center', justifyContent: 'center' }}>

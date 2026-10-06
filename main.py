@@ -67,6 +67,9 @@ class HotkeyManager:
         t.start()
 
     def _hotkey_loop(self):
+        user32.GetMessageW.argtypes = [ctypes.POINTER(wintypes.MSG), wintypes.HWND, wintypes.UINT, wintypes.UINT]
+        user32.GetMessageW.restype = wintypes.BOOL
+        
         if not user32.RegisterHotKey(None, HOTKEY_ID, MOD_CONTROL | MOD_SHIFT, VK_SPACE):
             msg = "HOTKEY ERROR: Failed to register Ctrl+Shift+Space. Another app may be using it."
             logger.error(msg)
@@ -82,7 +85,10 @@ class HotkeyManager:
         logger.info("Registered global hotkeys.")
         
         msg = wintypes.MSG()
-        while user32.GetMessageW(ctypes.byref(msg), None, 0, 0) != 0:
+        while True:
+            bRet = user32.GetMessageW(ctypes.byref(msg), None, 0, 0)
+            if bRet == 0 or bRet == -1:
+                break
             if msg.message == 0x0312: # WM_HOTKEY
                 if msg.wParam == HOTKEY_ID:
                     self.toggle_state()

@@ -4,3 +4,9 @@ node_modules/
 __pycache__/
 *.log
 frontend/dist/
+memory.db
+test-results/
+.playwright-mcp/
+test_10_6_out.txt
+scratch_*.py
+.pytest_cache/

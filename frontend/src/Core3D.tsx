@@ -1,8 +1,9 @@
-import React, { useRef, useMemo, useState } from 'react';
+import React, { useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Icosahedron, Sphere, Ring, Points, PointMaterial } from '@react-three/drei';
 import * as THREE from 'three';
 import { EffectComposer, Bloom, Vignette, Noise, Scanline } from '@react-three/postprocessing';
+import { live, audioBus, interaction, updateFrame } from './shared';
 
 const colors = {
   primary: '#083fc3',
@@ -14,12 +15,16 @@ const colors = {
   hover: '#00d9ff',
 };
 
-const HUDRing = ({ radius, width, speed, segments, opacity, state, reverse = false, rms = 0, isHovered = false }: any) => {
+const HUDRing = ({ radius, width, speed, segments, opacity, reverse = false }: any) => {
   const ref = useRef<THREE.Group>(null!);
   const matRef = useRef<THREE.MeshBasicMaterial>(null!);
 
   useFrame((_, delta) => {
     if (!ref.current) return;
+    const state = live.state;
+    const rms = audioBus.raw * 100;
+    const isHovered = interaction.hoverT > 0.5;
+
     let currentSpeed = speed;
     let targetColor = isHovered ? colors.hover : colors.primaryLight;
     
@@ -56,12 +61,15 @@ const HUDRing = ({ radius, width, speed, segments, opacity, state, reverse = fal
   return <group ref={ref}>{rings}</group>;
 };
 
-const Lattice = ({ state, rms = 0, isHovered = false }: { state: string, rms?: number, isHovered?: boolean }) => {
+const Lattice = () => {
   const meshRef = useRef<THREE.Mesh>(null!);
   const matRef = useRef<THREE.MeshBasicMaterial>(null!);
   
   useFrame(({ clock }, delta) => {
     if (!meshRef.current || !matRef.current) return;
+    const state = live.state;
+    const rms = audioBus.raw * 100;
+    const isHovered = interaction.hoverT > 0.5;
     
     let targetScale = 1.0;
     let targetColor = isHovered ? colors.hover : colors.primary;
@@ -113,13 +121,17 @@ const Lattice = ({ state, rms = 0, isHovered = false }: { state: string, rms?: n
   );
 };
 
-const Nucleus = ({ state, rms = 0, isHovered = false }: { state: string, rms?: number, isHovered?: boolean }) => {
+const Nucleus = () => {
   const meshRef = useRef<THREE.Mesh>(null!);
+  const innerRef = useRef<THREE.Mesh>(null!);
   const matRef = useRef<THREE.MeshBasicMaterial>(null!);
   const lightRef = useRef<THREE.PointLight>(null!);
 
   useFrame(({ clock }) => {
-    if (!meshRef.current || !matRef.current) return;
+    if (!meshRef.current || !matRef.current || !innerRef.current) return;
+    const state = live.state;
+    const rms = audioBus.raw * 100;
+    const isHovered = interaction.hoverT > 0.5;
     const t = clock.getElapsedTime();
     
     let scale = 1.0;
@@ -150,9 +162,14 @@ const Nucleus = ({ state, rms = 0, isHovered = false }: { state: string, rms?: n
 
     if (state !== 'ERROR') {
         meshRef.current.scale.lerp(new THREE.Vector3(scale, scale, scale), 0.1);
+        innerRef.current.scale.lerp(new THREE.Vector3(scale * 1.15, scale * 1.15, scale * 1.15), 0.1);
     } else {
         meshRef.current.scale.set(scale, scale, scale);
+        innerRef.current.scale.set(scale * 1.15, scale * 1.15, scale * 1.15);
     }
+    
+    innerRef.current.rotation.y += 0.02;
+    innerRef.current.rotation.x += 0.01;
     
     const targetColor = new THREE.Color(color);
     matRef.current.color.lerp(targetColor, 0.1);
@@ -161,15 +178,18 @@ const Nucleus = ({ state, rms = 0, isHovered = false }: { state: string, rms?: n
 
   return (
     <group>
-      <pointLight ref={lightRef} intensity={2.0} distance={5} />
-      <Sphere ref={meshRef} args={[0.4, 32, 32]}>
+      <pointLight ref={lightRef} intensity={2.0} distance={6} />
+      <Sphere ref={meshRef} args={[0.35, 32, 32]}>
         <meshBasicMaterial ref={matRef} color={colors.primaryLight} transparent opacity={0.9} />
       </Sphere>
+      <Icosahedron ref={innerRef} args={[0.4, 2]}>
+        <meshBasicMaterial color="#ffffff" wireframe transparent opacity={0.2} blending={THREE.AdditiveBlending} />
+      </Icosahedron>
     </group>
   );
 };
 
-const EnergyFilaments = ({ state, rms = 0, isHovered = false }: { state: string, rms?: number, isHovered?: boolean }) => {
+const EnergyFilaments = () => {
   const points = useRef<THREE.Points>(null!);
   const matRef = useRef<THREE.PointsMaterial>(null!);
   
@@ -189,6 +209,9 @@ const EnergyFilaments = ({ state, rms = 0, isHovered = false }: { state: string,
 
   useFrame((_, delta) => {
     if (!points.current) return;
+    const state = live.state;
+    const rms = audioBus.raw * 100;
+    const isHovered = interaction.hoverT > 0.5;
     let speed = isHovered ? 0.4 : 0.2;
     let color = isHovered ? colors.hover : colors.primaryGlow;
     
@@ -213,14 +236,15 @@ const EnergyFilaments = ({ state, rms = 0, isHovered = false }: { state: string,
   );
 };
 
-
-
-const InnerGlow = ({ state, rms = 0, isHovered = false }: { state: string, rms?: number, isHovered?: boolean }) => {
+const InnerGlow = () => {
   const meshRef = useRef<THREE.Mesh>(null!);
   const matRef = useRef<THREE.MeshBasicMaterial>(null!);
 
   useFrame(({ clock }) => {
     if (!meshRef.current || !matRef.current) return;
+    const state = live.state;
+    const rms = audioBus.raw * 100;
+    const isHovered = interaction.hoverT > 0.5;
     const t = clock.getElapsedTime();
     let scale = 1.0;
     
@@ -235,21 +259,26 @@ const InnerGlow = ({ state, rms = 0, isHovered = false }: { state: string, rms?:
     }
 
     meshRef.current.scale.lerp(new THREE.Vector3(scale, scale, scale), 0.1);
+    matRef.current.color.lerp(new THREE.Color(isHovered ? colors.hover : colors.primaryGlow), 0.1);
+    matRef.current.opacity = isHovered ? 0.3 : 0.15;
   });
 
   return (
     <Icosahedron ref={meshRef} args={[0.7, 4]}>
-      <meshBasicMaterial ref={matRef} color={isHovered ? colors.hover : colors.primaryGlow} transparent opacity={isHovered ? 0.3 : 0.15} blending={THREE.AdditiveBlending} depthWrite={false} />
+      <meshBasicMaterial ref={matRef} color={colors.primaryGlow} transparent opacity={0.15} blending={THREE.AdditiveBlending} depthWrite={false} />
     </Icosahedron>
   );
 };
 
-const OuterShell = ({ state, rms = 0, isHovered = false }: { state: string, rms?: number, isHovered?: boolean }) => {
+const OuterShell = () => {
   const meshRef = useRef<THREE.Mesh>(null!);
   const matRef = useRef<THREE.MeshBasicMaterial>(null!);
   
   useFrame(({ clock }, delta) => {
     if (!meshRef.current || !matRef.current) return;
+    const state = live.state;
+    const rms = audioBus.raw * 100;
+    const isHovered = interaction.hoverT > 0.5;
     
     let targetScale = 1.0;
     let targetColor = isHovered ? colors.hover : colors.primaryDark;
@@ -287,24 +316,146 @@ const OuterShell = ({ state, rms = 0, isHovered = false }: { state: string, rms?
     meshRef.current.rotation.z += delta * rotSpeed * 0.2;
     
     matRef.current.color.lerp(new THREE.Color(targetColor), 0.05);
+    matRef.current.opacity = isHovered ? 0.3 : 0.2;
   });
 
   return (
     <Icosahedron ref={meshRef} args={[1.5, 1]}>
-      <meshBasicMaterial ref={matRef} color={colors.primaryDark} wireframe transparent opacity={isHovered ? 0.3 : 0.2} blending={THREE.AdditiveBlending} />
+      <meshBasicMaterial ref={matRef} color={colors.primaryDark} wireframe transparent opacity={0.2} blending={THREE.AdditiveBlending} />
     </Icosahedron>
   );
 };
 
-export const Core3D: React.FC<{state: string, isVisible: boolean, rms?: number, isCompact?: boolean, onCoreClick?: () => void}> = ({ state, isVisible, rms = 0, isCompact = false, onCoreClick }) => {
-  const [isHovered, setIsHovered] = useState(false);
+const SystemLoop = () => {
+    useFrame((_, delta) => updateFrame(delta));
+    return null;
+};
 
-  // A large invisible sphere to catch pointer events easily
+const BackgroundParticles = () => {
+    const count = 400;
+    const positions = useMemo(() => {
+        const p = new Float32Array(count * 3);
+        for (let i = 0; i < count; i++) {
+            p[i*3] = (Math.random() - 0.5) * 20;
+            p[i*3+1] = (Math.random() - 0.5) * 20;
+            p[i*3+2] = (Math.random() - 0.5) * 15 - 5;
+        }
+        return p;
+    }, []);
+    const ref = useRef<THREE.Points>(null!);
+    
+    useFrame(({ clock }) => {
+        if (!ref.current) return;
+        const st = live.state;
+        const t = clock.getElapsedTime() * 0.05;
+        
+        ref.current.rotation.y = t + interaction.px * 0.1;
+        ref.current.rotation.x = interaction.py * 0.1;
+        
+        const s = ref.current.scale.x;
+        const targetScale = (st === 'THINKING') ? 0.8 : ((st === 'LISTENING') ? 0.95 : 1.0);
+        ref.current.scale.setScalar(s + (targetScale - s) * 0.05);
+        
+        if (st === 'THINKING') {
+            ref.current.rotation.z += 0.005;
+        }
+    });
+
+    return (
+        <Points ref={ref} positions={positions} frustumCulled={false}>
+            <PointMaterial color={colors.primarySoft} size={0.03} sizeAttenuation transparent opacity={0.3} blending={THREE.AdditiveBlending} depthWrite={false} />
+        </Points>
+    );
+};
+
+const PostProcessingBloom = ({ isCompact }: { isCompact: boolean }) => {
+    const [intensity, setIntensity] = React.useState(isCompact ? 1.5 : 2.5);
+    useFrame(() => {
+        const isHovered = interaction.hoverT > 0.5;
+        setIntensity(isCompact ? 1.5 : (isHovered ? 3.0 : 2.5));
+    });
+    return (
+        <EffectComposer>
+            <Bloom luminanceThreshold={0.15} luminanceSmoothing={0.9} height={300} intensity={intensity} />
+            <Noise opacity={isCompact ? 0.02 : 0.03} />
+            <Vignette eskil={false} offset={0.1} darkness={1.1} />
+            <Scanline density={isCompact ? 1.5 : 2.0} opacity={0.05} />
+        </EffectComposer>
+    );
+};
+
+const CoreVisuals = () => {
+    const groupRef = useRef<THREE.Group>(null!);
+    
+    useFrame(() => {
+        if (!groupRef.current) return;
+        
+        if (interaction.dragging) {
+            interaction.rotY += interaction.velX * 0.005;
+            interaction.rotX += interaction.velY * 0.005;
+            interaction.rotX = Math.max(-Math.PI/2.5, Math.min(Math.PI/2.5, interaction.rotX));
+            interaction.velX *= 0.5; // decay quickly while dragging so it stops if mouse stops
+            interaction.velY *= 0.5;
+        } else {
+            interaction.rotY += interaction.velX * 0.01;
+            interaction.rotX += interaction.velY * 0.01;
+            interaction.rotX = Math.max(-Math.PI/2.5, Math.min(Math.PI/2.5, interaction.rotX));
+            interaction.velX *= 0.95; // inertia damping
+            interaction.velY *= 0.95;
+        }
+        
+        groupRef.current.rotation.y = interaction.rotY;
+        groupRef.current.rotation.x = interaction.rotX;
+    });
+
+    return (
+        <group ref={groupRef}>
+            <Nucleus />
+            <InnerGlow />
+            <Lattice />
+            <OuterShell />
+            <EnergyFilaments />
+        </group>
+    );
+};
+
+export const Core3D: React.FC<{isVisible: boolean, isCompact?: boolean, onCoreClick?: () => void}> = ({ isVisible, isCompact = false, onCoreClick }) => {
+  const [hovered, setHovered] = React.useState(false);
+  const dragStart = useRef({ x: 0, y: 0 });
+
   const HitBox = () => (
     <mesh 
-      onPointerOver={() => setIsHovered(true)} 
-      onPointerOut={() => setIsHovered(false)}
-      onClick={onCoreClick}
+      onPointerOver={() => { interaction.hoverT = 1; setHovered(true); }} 
+      onPointerOut={() => { 
+          interaction.hoverT = 0; setHovered(false); 
+          interaction.dragging = false; 
+      }}
+      onPointerDown={(e) => {
+          e.stopPropagation();
+          interaction.dragging = true;
+          interaction.velX = 0;
+          interaction.velY = 0;
+          dragStart.current = { x: e.clientX, y: e.clientY };
+          (e.target as any).setPointerCapture(e.pointerId);
+      }}
+      onPointerUp={(e) => {
+          e.stopPropagation();
+          interaction.dragging = false;
+          (e.target as any).releasePointerCapture(e.pointerId);
+      }}
+      onPointerMove={(e) => {
+          if (interaction.dragging) {
+              interaction.velX = e.movementX;
+              interaction.velY = e.movementY;
+          }
+      }}
+      onClick={(e) => {
+          const dx = e.clientX - dragStart.current.x;
+          const dy = e.clientY - dragStart.current.y;
+          if (Math.abs(dx) < 5 && Math.abs(dy) < 5) {
+              onCoreClick?.();
+          }
+      }}
       visible={false}
     >
       <sphereGeometry args={[2.5, 16, 16]} />
@@ -313,33 +464,28 @@ export const Core3D: React.FC<{state: string, isVisible: boolean, rms?: number, 
   );
 
   return (
-    <div style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 0, cursor: isHovered ? 'pointer' : 'default' }}>
+    <div style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 0, cursor: hovered ? (interaction.dragging ? 'grabbing' : 'pointer') : 'default' }}>
       <Canvas frameloop={isVisible ? 'always' : 'demand'} camera={{ position: [0, 0, isCompact ? 4.5 : 3.8], fov: isCompact ? 50 : 60 }} style={{ background: 'transparent' }} dpr={[1, 2]}>
+        <SystemLoop />
         
+        <BackgroundParticles />
+
         <HitBox />
         
-        <Nucleus state={state} rms={rms} isHovered={isHovered} />
-        <InnerGlow state={state} rms={rms} isHovered={isHovered} />
-        <Lattice state={state} rms={rms} isHovered={isHovered} />
-        <OuterShell state={state} rms={rms} isHovered={isHovered} />
-        <EnergyFilaments state={state} rms={rms} isHovered={isHovered} />
+        <CoreVisuals />
         
         {/* HUD Rings facing camera - Scale up slightly in full screen */}
         <group scale={isCompact ? 1.0 : 1.2}>
-          <HUDRing radius={1.7} width={0.02} speed={0.5} segments={3} opacity={0.6} state={state} rms={rms} isHovered={isHovered} />
-          <HUDRing radius={1.85} width={0.01} speed={0.3} segments={5} opacity={0.4} state={state} reverse rms={rms} isHovered={isHovered} />
-          <HUDRing radius={2.0} width={0.03} speed={0.8} segments={2} opacity={0.3} state={state} rms={rms} isHovered={isHovered} />
-          <HUDRing radius={2.15} width={0.005} speed={0.2} segments={8} opacity={0.2} state={state} reverse rms={rms} isHovered={isHovered} />
+          <HUDRing radius={1.7} width={0.02} speed={0.5} segments={3} opacity={0.6} />
+          <HUDRing radius={1.85} width={0.01} speed={0.3} segments={6} opacity={0.4} reverse />
+          <HUDRing radius={2.0} width={0.03} speed={0.8} segments={2} opacity={0.3} />
+          <HUDRing radius={2.15} width={0.005} speed={0.2} segments={12} opacity={0.2} reverse />
+          <HUDRing radius={2.3} width={0.01} speed={0.1} segments={4} opacity={0.15} />
         </group>
 
-        <EffectComposer>
-            <Bloom luminanceThreshold={0.15} luminanceSmoothing={0.9} height={300} intensity={isCompact ? 1.5 : (isHovered ? 3.0 : 2.5)} />
-            <Noise opacity={isCompact ? 0.02 : 0.03} />
-            <Vignette eskil={false} offset={0.1} darkness={1.1} />
-            <Scanline density={isCompact ? 1.5 : 2.0} opacity={0.05} />
-        </EffectComposer>
-
+        <PostProcessingBloom isCompact={isCompact} />
       </Canvas>
     </div>
   );
 };
+
