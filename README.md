@@ -1,154 +1,77 @@
 <div align="center">
 
-```
- █████╗  ██████╗ ███╗   ██╗██╗   ██╗██╗  ██╗
-██╔══██╗██╔═══██╗████╗  ██║╚██╗ ██╔╝╚██╗██╔╝
-███████║██║   ██║██╔██╗ ██║ ╚████╔╝  ╚███╔╝
-██╔══██║██║   ██║██║╚██╗██║  ╚██╔╝   ██╔██╗
-██║  ██║╚██████╔╝██║ ╚████║   ██║   ██╔╝ ██╗
-╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝   ╚═╝   ╚═╝  ╚═╝
-```
+<img src="docs/banner.svg" alt="AONYX - a local-first AI assistant that listens, reasons, acts and remembers" width="100%">
 
-### NEURAL CORE // ONLINE
+<br>
 
-**A local-first AI assistant for your desktop. It listens, reasons, acts, and remembers, entirely on your machine.**
+![Platform](https://img.shields.io/badge/platform-Windows%2010%20%2F%2011-083fc3?style=flat-square&labelColor=010714)
+![Python](https://img.shields.io/badge/python-3.10%2B-2f6bff?style=flat-square&labelColor=010714)
+![LLM](https://img.shields.io/badge/LLM-Ollama%20%2F%20llama3-5b8cff?style=flat-square&labelColor=010714)
+![Runs](https://img.shields.io/badge/runs-100%25%20local-052a82?style=flat-square&labelColor=010714)
+![Status](https://img.shields.io/badge/status-complete-031a52?style=flat-square&labelColor=010714)
 
-![Platform](https://img.shields.io/badge/platform-Windows%2011-083fc3?style=flat-square)
-![Python](https://img.shields.io/badge/python-3.10%2B-2f6bff?style=flat-square)
-![LLM](https://img.shields.io/badge/LLM-Ollama%20%2F%20llama3-5b8cff?style=flat-square)
-![Privacy](https://img.shields.io/badge/runs-100%25%20local-052a82?style=flat-square)
-![Status](https://img.shields.io/badge/status-complete-031a52?style=flat-square)
+**[Overview](#overview)** &nbsp;|&nbsp; **[Capabilities](#capabilities)** &nbsp;|&nbsp; **[How it thinks](#how-it-thinks)** &nbsp;|&nbsp; **[Security](#security-model)** &nbsp;|&nbsp; **[Architecture](#architecture)** &nbsp;|&nbsp; **[Get started](#getting-started)**
 
 </div>
 
----
+<img src="docs/divider.svg" alt="" width="100%">
 
-## // OVERVIEW
+## Overview
 
 Aonyx is a voice-driven AI assistant that lives on your desktop and appears the moment you call it. Press a hotkey, speak, and a holographic neural core wakes up, reacting in real time to your voice, its own thinking, and the tools it uses.
 
-It is not a chatbot wrapped in a window. Behind the HUD sits an orchestration layer that decides what you want, chooses whether a tool is needed, executes it through a strict allowlist, observes the real result, and only then responds. It does not invent tool results, and it cannot run arbitrary commands.
+It is not a chatbot wrapped in a window. Behind the HUD sits an orchestration layer that works out what you want, decides whether a tool is needed, runs it through a strict allowlist, observes the real result, and only then responds. It does not invent tool results, and it cannot run arbitrary commands.
 
-Everything runs locally: speech recognition, language model, speech synthesis, and memory. No cloud account, no telemetry, no data leaving your machine except the web lookups you explicitly allow.
+Everything runs locally: speech recognition, the language model, speech synthesis and memory. There is no cloud account and no telemetry. The only traffic that leaves your machine is the web lookups you allow.
 
----
+<img src="docs/divider.svg" alt="" width="100%">
 
-## // CAPABILITIES
+## Capabilities
 
-| Module | What it does |
-| --- | --- |
-| **Holographic Core** | A real-time 3D neural core (WebGL) that reacts to microphone level, thinking, tool use, speech output, and errors |
-| **Voice Interface** | Push-to-talk, local speech-to-text, streamed text-to-speech, and instant barge-in to interrupt mid-sentence |
-| **AI Orchestration** | Intent, tool selection, execution, observation, reasoning, response, in a multi-step loop with hard limits |
-| **Persistent Memory** | SQLite-backed memory for short-term context, long-term facts, preferences, and task state |
-| **Desktop Intelligence** | Active window awareness, safe application launching, and live system telemetry |
-| **Web Intelligence** | Web search and page fetching with SSRF protection and prompt-injection defense |
-| **Personality Layer** | Calm, concise, and precise. Response length adapts to the task |
-| **Raycast-style Launcher** | A global hotkey summons or hides the HUD instantly. Rendering pauses while hidden |
+<img src="docs/capabilities.svg" alt="Aonyx capabilities: holographic core, voice interface, AI orchestration, persistent memory, desktop intelligence, web intelligence, personality layer and instant launcher" width="100%">
 
----
+<img src="docs/divider.svg" alt="" width="100%">
 
-## // HOW IT THINKS
+## How it thinks
 
-```
-        USER INPUT  (voice or text)
-             |
-             v
-     +----------------+
-     |  INTENT        |   what is being asked?
-     +-------+--------+
-             |
-             v
-     +----------------+        no
-     |  NEED A TOOL?  +--------------------+
-     +-------+--------+                    |
-             | yes                         |
-             v                             |
-     +----------------+                    |
-     |  SELECT TOOL   |                    |
-     +-------+--------+                    |
-             v                             |
-     +----------------+                    |
-     |  VALIDATE +    |   schema check,    |
-     |  PERMISSION    |   allowlist,       |
-     +-------+--------+   confirmation     |
-             v                             |
-     +----------------+                    |
-     |  EXECUTE       |                    |
-     +-------+--------+                    |
-             v                             |
-     +----------------+                    |
-     |  OBSERVE       |   real result      |
-     +-------+--------+   only             |
-             |                             |
-             +-------> REASON <------------+
-                          |
-                          v
-                       RESPOND  ->  streamed text  ->  spoken audio
-```
+Every request, typed or spoken, goes through the same loop. The model decides whether it needs a tool, and every tool call is validated and permission-checked before it runs. The model then answers from the real result, not from a guess. If a tool fails, Aonyx reports the actual failure.
 
-The loop repeats until the model answers without requesting another tool, with a hard cap on steps and a time budget. If a tool fails, Aonyx reports the actual failure instead of inventing a result.
+<img src="docs/flow.svg" alt="Reasoning loop: input, intent, need a tool, select, validate, execute, observe, reason, respond, speak" width="100%">
+
+The loop repeats until the model answers without requesting another tool, with a hard cap on steps and a total time budget.
 
 ### State machine
 
-```
-IDLE --> LISTENING --> THINKING --> TOOL_EXECUTION --> THINKING --> SPEAKING --> IDLE
-                           |                |                          |
-                           +----------------+---------> ERROR <--------+
-                                                          |
-                                                          +--> retry / settle to IDLE
-```
+The HUD is driven by one state machine. The 3D core maps directly to these states: each one changes how the core moves, glows and pulses, and the core never fully stops moving.
 
-The 3D core maps directly to these states. Each state changes how the core moves, glows, and pulses, and the core never fully stops moving.
+<img src="docs/states.svg" alt="State machine: idle, listening, thinking, tool execution, speaking, with error recovering to idle" width="100%">
 
----
+<img src="docs/divider.svg" alt="" width="100%">
 
-## // SECURITY MODEL
+## Security model
 
-Aonyx is designed on the assumption that a language model should never be trusted with unrestricted access.
+A language model should never be trusted with unrestricted access, so Aonyx is built around gates.
 
-- **Explicit tool allowlist.** The model can only call registered tools. There is no shell tool, no `eval`, and no "run command" capability, by design.
-- **Schema validation.** Every tool call is validated against its input schema. Malformed or extra arguments are rejected.
-- **Permission levels.** Tools are classified as safe, confirm, or blocked. Anything that touches your files, apps, or the web asks for confirmation in the HUD first.
+<img src="docs/security.svg" alt="Security gates: schema check, allowlist, permission level and confirmation before a tool runs, with every call written to an audit log" width="100%">
+
+- **Explicit tool allowlist.** The model can only call registered tools. There is no shell tool, no `eval` and no "run command" capability, by design.
+- **Schema validation.** Every tool call is checked against its input schema. Malformed or extra arguments are rejected.
+- **Permission levels.** Tools are safe, confirm or blocked. Anything that touches your files, apps or the web asks for confirmation in the HUD first.
 - **Application allowlist.** The model supplies an app key, never a path or command line. Launches use argument lists with `shell=False`.
-- **SSRF protection.** Web tools refuse localhost, private, and internal network addresses.
-- **Prompt-injection defense.** Web pages, files, and memory contents are treated as untrusted data, wrapped, and flagged so instructions hidden inside them are not followed.
-- **Audit trail.** Tool calls are logged with their arguments, permission result, duration, and outcome. File contents and secrets are not logged.
+- **SSRF protection.** Web tools refuse localhost, private and internal network addresses.
+- **Prompt-injection defense.** Web pages, files and memory contents are treated as untrusted data, wrapped and flagged so instructions hidden inside them are not followed.
+- **Audit trail.** Tool calls are logged with arguments, permission result, duration and outcome. File contents and secrets are not logged.
 - **Privacy by default.** The microphone records only while listening, and the HUD shows whenever audio is being captured.
 
----
+<img src="docs/divider.svg" alt="" width="100%">
 
-## // ARCHITECTURE
+## Architecture
 
-```
-+---------------------------------------------------------------+
-|                         AONYX HUD                             |
-|     React + TypeScript + Three.js (React Three Fiber)        |
-|     Tailwind  /  Zustand  /  GLSL holographic core            |
-+--------------------------+------------------------------------+
-                           |  pywebview JS bridge
-                           |  (thread-safe events)
-+--------------------------v------------------------------------+
-|                      PYTHON BACKEND                           |
-|                                                               |
-|   Window manager + global hotkeys (Win32)                     |
-|   Orchestrator  ->  Tool registry  ->  Executors              |
-|   Memory manager (SQLite)                                     |
-|   Voice pipeline: capture -> STT -> TTS (gapless, interruptible)
-|   Provider interface (Ollama today, swappable later)          |
-+--------------+------------------------------+-----------------+
-               |                              |
-        +------v------+                +------v-------+
-        |   OLLAMA    |                |  LOCAL AUDIO |
-        |  llama3     |                |  mic / speakers
-        +-------------+                +--------------+
-```
+The interface and the Python core talk over the pywebview bridge. The language model sits behind a provider interface, so the orchestrator, tools and UI never depend on Ollama directly. Replacing the model means writing one adapter.
 
-The language model sits behind a provider interface, so the orchestrator, tools, and UI never depend on Ollama directly. Replacing the model means writing one adapter.
+<img src="docs/architecture.svg" alt="Architecture: React and WebGL interface, pywebview bridge, Python core with orchestrator, tool registry, memory, voice and provider interface, connected to Ollama, audio, web and Windows" width="100%">
 
----
-
-## // TECH STACK
+### Tech stack
 
 | Layer | Technology |
 | --- | --- |
@@ -162,13 +85,13 @@ The language model sits behind a provider interface, so the orchestrator, tools,
 | Memory | SQLite |
 | Testing | pytest |
 
----
+<img src="docs/divider.svg" alt="" width="100%">
 
-## // GETTING STARTED
+## Getting started
 
 ### Requirements
 
-- Windows 10 or 11 (the launcher, hotkeys, and window handling use Win32)
+- Windows 10 or 11 (the launcher, hotkeys and window handling use Win32)
 - Python 3.10 or newer
 - Node.js 18 or newer
 - [Ollama](https://ollama.com) installed and running
@@ -205,13 +128,9 @@ copy .env.example .env
 pythonw aonyx_app.pyw
 ```
 
-Aonyx starts in the background. Press the summon hotkey to bring up the HUD.
+Aonyx starts in the background. Press the summon hotkey to bring up the HUD. For development, run `npm run dev` inside `frontend/`, and use `python` instead of `pythonw` to see console output.
 
-For development, run `npm run dev` inside `frontend/` and `python aonyx_app.pyw` for the launcher. Use `python` instead of `pythonw` to see console output.
-
----
-
-## // CONTROLS
+### Controls
 
 | Action | Default |
 | --- | --- |
@@ -222,11 +141,7 @@ For development, run `npm run dev` inside `frontend/` and `python aonyx_app.pyw`
 
 Both hotkeys are configurable in `.env`. If a hotkey conflicts with another application, Aonyx shows a warning in the HUD.
 
----
-
-## // CONFIGURATION
-
-Settings live in `.env` and the config file. Key options:
+### Configuration
 
 | Setting | Purpose |
 | --- | --- |
@@ -238,11 +153,11 @@ Settings live in `.env` and the config file. Key options:
 | Allowed folders | Folders the file tools may read |
 | Tool limits | Maximum steps and timeouts per request |
 
----
+<img src="docs/divider.svg" alt="" width="100%">
 
-## // EXTENDING AONYX
+## Extending Aonyx
 
-Adding a tool means registering a name, description, input schema, execution function, and a safety level. The registry exposes it to the model automatically, validates its arguments, and applies the confirmation rules for its permission level.
+Adding a tool means registering a name, description, input schema, execution function and a safety level. The registry exposes it to the model automatically, validates its arguments, and applies the confirmation rules for its permission level.
 
 ```python
 @registry.tool(
@@ -256,32 +171,28 @@ def get_current_time(args):
     ...
 ```
 
-Tools that touch the filesystem, launch programs, or reach the network should use the confirm level and validate every input.
+Tools that touch the filesystem, launch programs or reach the network should use the confirm level and validate every input.
 
----
-
-## // PROJECT STRUCTURE
+## Project structure
 
 ```
 aonyx/
     app/
-        orchestrator/       multi-step reasoning loop and provider interface
+        orchestrator/       reasoning loop and provider interface
         tools/              tool registry and allowlisted executors
         memory/             SQLite memory manager
         voice/              capture, speech-to-text, text-to-speech
     frontend/
         src/
-            components/     3D core, command bar, panels, event feed
+            components/     3D core, command bar, panels, activity feed
             store/          Zustand state machine
+    docs/                   README diagrams
     tests/                  pytest suites
     aonyx_app.pyw           launcher, window manager, global hotkeys
     .env.example
-    README.md
 ```
 
----
-
-## // TESTING
+## Testing
 
 ```bash
 pytest
@@ -289,25 +200,21 @@ pytest
 
 The suites cover audio chunking and gapless playback timing, web tool security (SSRF, private addresses, malformed URLs), desktop and process safety, and memory persistence across restarts.
 
----
-
-## // KNOWN LIMITATIONS
+## Known limitations
 
 - Windows only. The launcher and hotkeys rely on Win32 APIs.
 - Tool selection quality depends on the model. llama3 is workable for structured tool use, but a stronger tool-capable model will be more reliable.
 - Speech synthesis uses the Windows SAPI5 voices installed on your system, so voice quality varies by machine.
 - The compact orb is an opaque window. True transparency with WebGL is unreliable on WebView2.
 
----
-
-## // LICENSE
+## License
 
 Add your license here, for example MIT.
 
----
+<img src="docs/divider.svg" alt="" width="100%">
 
 <div align="center">
 
-**AONYX** // built local, runs local, stays yours.
+**AONYX** &nbsp;|&nbsp; built local, runs local, stays yours.
 
 </div>
